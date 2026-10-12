@@ -26,3 +26,5 @@ FOUNDATION_EXPORT CGRect HGHostFrame(UIView *view);
 FOUNDATION_EXPORT void HGInstallFeatures(void);
 FOUNDATION_EXPORT void HGInstallSettings(void);
 FOUNDATION_EXPORT NSArray<NSString *> *HGMissingClasses(void);
+
+FOUNDATION_EXPORT NSString *HGSafetyReason(void);

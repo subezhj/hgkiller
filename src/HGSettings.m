@@ -76,8 +76,8 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         @[
             @{@"key": @"tab.glass", @"title": @"悬浮液态玻璃底栏"},
             @{@"key": @"tab.height", @"title": @"底栏高度", @"slider": @YES, @"unit": @"pt", @"min": @44, @"max": @80},
-            @{@"key": @"video.extend", @"title": @"视频延伸至屏幕底部"},
-            @{@"key": @"video.fillPortrait", @"title": @"竖屏视频裁切铺满"}
+            @{@"key": @"video.extend", @"title": @"视频区域扩展（暂不可用）", @"disabled": @YES},
+            @{@"key": @"video.fillPortrait", @"title": @"竖屏裁切铺满（暂不可用）", @"disabled": @YES}
         ],
         @[
             @{@"key": @"top.enabled", @"title": @"缩小顶部文字"},
@@ -101,11 +101,11 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
 }
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     switch (section) {
-        case 0: return @"关闭后恢复 hgkiller 调整的布局。与红果净化使用独立设置。";
+        case 0: return @"关闭后恢复 hgkiller 调整的布局。检测到布局循环时会自动关闭增强，重启应用后再启用。";
         case 1: return @"关闭某项后自动收紧排列；大小可调为 55%–100%。";
-        case 2: return @"视频延伸到底栏后方，进度条保留。液态玻璃需要 iOS 26 或更高版本，旧系统使用磨砂效果。仅高比例竖屏视频裁切铺满，横屏视频保持比例。";
+        case 2: return @"为排查卡死，本版暂停视频扩展和裁切，保留原播放器与分页。底栏高度和液态玻璃仍可调整。";
         case 3: return @"调整首页顶部分类与搜索文字，保留原来的入口。";
-        default: return @"hgkiller 0.1.1 · 红果短剧 7.3.9 适配";
+        default: return @"hgkiller 0.1.2 · 红果短剧 7.3.9 适配";
     }
 }
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)path {
@@ -140,6 +140,8 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
     } else if (key) {
         UISwitch *toggle = [UISwitch new];
         toggle.on = HGBool(key);
+        toggle.enabled = ![row[@"disabled"] boolValue];
+        if (!toggle.enabled) cell.textLabel.textColor = UIColor.secondaryLabelColor;
         toggle.tag = tag;
         toggle.accessibilityLabel = row[@"title"];
         [toggle addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
@@ -154,6 +156,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
 - (void)switchChanged:(UISwitch *)sender {
     NSDictionary *row = HGRows()[sender.tag / 100][sender.tag % 100];
     HGWritePreference(row[@"key"], @(sender.on));
+    sender.on = HGBool(row[@"key"]);
 }
 - (void)sliderChanged:(UISlider *)sender {
     NSDictionary *row = HGRows()[sender.tag / 100][sender.tag % 100];
@@ -185,7 +188,8 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         NSString *message = [NSString stringWithFormat:@"红果版本：%@\n底栏：%@\n%@",
                              version, glass, missing.count ? [@"未找到类：\n" stringByAppendingString:[missing componentsJoinedByString:@"\n"]]
                                                           : @"目标类已加载。\n实际布局仍需真机验证。"];
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.1"
+        if (HGSafetyReason().length) message = [message stringByAppendingFormat:@"\n\n保护记录：%@", HGSafetyReason()];
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.2"
                                                                       message:message preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:alert animated:YES completion:nil];

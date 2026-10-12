@@ -20,8 +20,8 @@ static NSDictionary *HGDefaults(void) {
         @"right.avatar": @YES, @"right.collect": @YES,
         @"right.comment": @YES, @"right.like": @YES, @"right.share": @YES,
         @"right.scale": @0.80,
-        @"tab.glass": @YES, @"tab.height": @54.0, @"video.extend": @YES,
-        @"video.fillPortrait": @YES,
+        @"tab.glass": @YES, @"tab.height": @54.0, @"video.extend": @NO,
+        @"video.fillPortrait": @NO,
         @"top.enabled": @YES, @"top.scale": @0.85
     };
 }
@@ -37,11 +37,47 @@ static void HGReloadPreferences(void) {
     }
     double tabHeight = [values[@"tab.height"] doubleValue];
     values[@"tab.height"] = @(isfinite(tabHeight) ? MAX(44.0, MIN(80.0, tabHeight)) : 54.0);
+    // Do not honor old saved fullscreen values in this hotfix; the corresponding hooks are absent.
+    values[@"video.extend"] = @NO;
+    values[@"video.fillPortrait"] = @NO;
     HGPreferences = [values copy];
 }
+static char HGLayoutBurstKey;
+static BOOL HGSafetyTripped;
+@interface HGLayoutBurst : NSObject
+@property(nonatomic) CFTimeInterval start;
+@property(nonatomic) NSUInteger count;
+@end
+@implementation HGLayoutBurst
+@end
+NSString *HGSafetyReason(void) {
+    return [NSUserDefaults.standardUserDefaults stringForKey:[HGPreferencePrefix stringByAppendingString:@"safety.lastReason"]] ?: @"";
+}
+static BOOL HGObserveLayout(id object, SEL selector) {
+    if (!HGEnabled() || HGIsApplying()) return !HGSafetyTripped;
+    HGLayoutBurst *burst = objc_getAssociatedObject(object, &HGLayoutBurstKey);
+    if (!burst) {
+        burst = [HGLayoutBurst new];
+        objc_setAssociatedObject(object, &HGLayoutBurstKey, burst, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    CFTimeInterval now = CACurrentMediaTime();
+    if (now - burst.start > 0.25) { burst.start = now; burst.count = 0; }
+    if (++burst.count <= 120) return YES;
+    HGSafetyTripped = YES;
+    NSString *reason = [NSString stringWithFormat:@"%@ %@：250ms 内重复布局超过120次，已停用增强。",
+                        NSStringFromClass([object class]), NSStringFromSelector(selector)];
+    [NSUserDefaults.standardUserDefaults setObject:reason
+        forKey:[HGPreferencePrefix stringByAppendingString:@"safety.lastReason"]];
+    [NSUserDefaults.standardUserDefaults setBool:NO
+        forKey:[HGPreferencePrefix stringByAppendingString:@"enabled"]];
+    HGReloadPreferences();
+    HGRefreshViews();
+    return NO;
+}
+
 void HGInitializePreferences(void) { HGReloadPreferences(); }
-BOOL HGEnabled(void) { return [HGPreferences[@"enabled"] boolValue]; }
-BOOL HGBool(NSString *key) { return [HGPreferences[key] boolValue]; }
+BOOL HGEnabled(void) { return !HGSafetyTripped && [HGPreferences[@"enabled"] boolValue]; }
+BOOL HGBool(NSString *key) { return [key isEqualToString:@"enabled"] ? HGEnabled() : [HGPreferences[key] boolValue]; }
 CGFloat HGNumber(NSString *key) { return [HGPreferences[key] doubleValue]; }
 
 void HGWritePreference(NSString *key, id value) {
@@ -133,8 +169,9 @@ void HGHookLayout(NSString *name, void (^callback)(UIView *)) {
     SEL selector = @selector(layoutSubviews);
     HGInstall(NSClassFromString(name), selector, ^id(IMP original) {
         return ^(UIView *view) {
+            BOOL observe = HGObserveLayout(view, selector);
             ((void (*)(id, SEL))original)(view, selector);
-            if (!HGIsApplying()) callback(view);
+            if (!HGIsApplying() && (observe || !HGEnabled())) callback(view);
         };
     });
 }
@@ -142,6 +179,7 @@ void HGHookControllerLayout(NSString *name, void (^callback)(UIViewController *)
     SEL selector = @selector(viewDidLayoutSubviews);
     HGInstall(NSClassFromString(name), selector, ^id(IMP original) {
         return ^(UIViewController *controller) {
+            HGObserveLayout(controller, selector);
             ((void (*)(id, SEL))original)(controller, selector);
             if (!HGIsApplying()) callback(controller);
         };
@@ -151,6 +189,7 @@ void HGHookFrame(NSString *name, CGRect (^adjust)(UIView *, CGRect)) {
     SEL selector = @selector(setFrame:);
     HGInstall(NSClassFromString(name), selector, ^id(IMP original) {
         return ^(UIView *view, CGRect frame) {
+            HGObserveLayout(view, selector);
             if (!HGIsApplying()) {
                 HGFrameState *state = HGFrame(view);
                 state.host = frame;
@@ -164,9 +203,8 @@ void HGHookFrame(NSString *name, CGRect (^adjust)(UIView *, CGRect)) {
 }
 static void HGMarkTargets(UIView *view) {
     for (NSString *name in @[@"SSShortVideoRightInteractionView", @"SSTabBar", @"CYLTabBar",
-                            @"SSVideoSeriesFeedHeaderView", @"FQVCollectionView",
-                            @"SSShortVideoBottomDistributionView", @"FQVShortVideoBaseInsertView",
-                            @"FQVShortVideoProgressView", @"TTPlayerView"]) {
+                            @"SSVideoSeriesFeedHeaderView",
+                            @"SSShortVideoBottomDistributionView"]) {
         if (HGIsClass(view, name)) { [view setNeedsLayout]; break; }
     }
     for (UIView *child in view.subviews) HGMarkTargets(child);

@@ -3,13 +3,14 @@
 #import "HGGeometry.h"
 #import <math.h>
 
-static NSUInteger HGBarPasses, HGRightPasses, HGChecks;
+static NSUInteger HGBarPasses, HGRightPasses, HGChecks, HGSteadyRightPasses;
+static IMP HGFeedFrameBeforeLoad, HGPlayerFrameBeforeLoad, HGItemBeforeLoad, HGSizeBeforeLoad;
 static void HGFinish(NSString *error) {
     NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject
                       stringByAppendingPathComponent:@"hg-results.json"];
     NSDictionary *result = @{@"success": @(!error), @"checks": @(HGChecks),
                              @"tabLayoutPasses": @(HGBarPasses), @"rightLayoutPasses": @(HGRightPasses),
-                             @"error": error ?: @""};
+                             @"error": error ?: @"", @"steadyRightLayoutPasses": @(HGSteadyRightPasses), @"safetyTripped": @(!HGEnabled() && HGSafetyReason().length > 0)};
     [[NSJSONSerialization dataWithJSONObject:result options:NSJSONWritingPrettyPrinted error:nil] writeToFile:path atomically:YES];
 }
 static void HGCheck(BOOL condition, NSString *message) {
@@ -28,6 +29,8 @@ static BOOL closeTo(CGFloat a, CGFloat b) { return fabs(a - b) < 0.3; }
 @implementation FQVCollectionView @end
 @interface FQVShortVideoCell : UICollectionViewCell @end
 @implementation FQVShortVideoCell @end
+@interface FQVPlayer : UIView @end
+@implementation FQVPlayer @end
 
 @interface HGFixtureLayout : UICollectionViewLayout @end
 @implementation HGFixtureLayout
@@ -235,14 +238,20 @@ static BOOL closeTo(CGFloat a, CGFloat b) { return fabs(a - b) < 0.3; }
         NSArray *scales = @[@0.55, @0.80, @1.0, @0.55, @0.80];
         if (self.phase == 0) {
             [self checkTabHeight:54];
-            CGFloat height = self.fixture.collection.superview.bounds.size.height;
-            HGCheck(closeTo(self.fixture.collection.bounds.size.height, height), @"Custom non-FlowLayout feed did not extend");
+            CGFloat height = self.fixture.collection.superview.bounds.size.height - 90;
+            HGCheck(closeTo(self.fixture.collection.bounds.size.height, height), @"Hotfix changed the native feed viewport");
             UICollectionViewLayout *layout = self.fixture.collection.collectionViewLayout;
             CGRect page = [layout layoutAttributesForItemAtIndexPath:[NSIndexPath indexPathForItem:1 inSection:0]].frame;
-            HGCheck(closeTo(page.origin.y, height) && closeTo(page.size.height, height), @"Custom layout page stride incorrect");
-            HGCheck(closeTo(layout.collectionViewContentSize.height, height * 3), @"Custom layout content size incorrect");
+            HGCheck(closeTo(page.origin.y, 784) && closeTo(page.size.height, 784), @"Hotfix changed native page attributes");
+            HGCheck(closeTo(layout.collectionViewContentSize.height, 784 * 3), @"Hotfix changed native content size");
             for (SSTabBarTextButton *button in self.fixture.bar.buttons) [button sendActionsForControlEvents:UIControlEventTouchUpInside];
             HGCheck(self.fixture.taps == 3, @"Original tab actions lost");
+            HGCheck(method_getImplementation(class_getInstanceMethod(FQVCollectionView.class, @selector(setFrame:))) == HGFeedFrameBeforeLoad, @"Feed frame method was hooked");
+            HGCheck(method_getImplementation(class_getInstanceMethod(FQVPlayer.class, @selector(setFrame:))) == HGPlayerFrameBeforeLoad, @"Player frame method was hooked");
+            HGCheck(method_getImplementation(class_getInstanceMethod(HGFixtureLayout.class, @selector(layoutAttributesForItemAtIndexPath:))) == HGItemBeforeLoad, @"Native item attributes were hooked");
+            HGCheck(method_getImplementation(class_getInstanceMethod(HGFixtureLayout.class, @selector(collectionViewContentSize))) == HGSizeBeforeLoad, @"Native content size was hooked");
+            HGWritePreference(@"video.extend", @YES);
+            HGCheck(!HGBool(@"video.extend"), @"Saved fullscreen setting bypassed hotfix isolation");
             HGWritePreference(@"right.scale", scales[0]);
         } else if (self.phase <= scales.count) {
             double expected = [scales[self.phase - 1] doubleValue];
@@ -269,6 +278,11 @@ static BOOL closeTo(CGFloat a, CGFloat b) { return fabs(a - b) < 0.3; }
             HGCheck(closeTo(self.fixture.bar.bounds.size.height, 84), @"Original tab frame did not restore");
             HGCheck(closeTo(self.fixture.collection.bounds.size.height, self.fixture.list.view.bounds.size.height - 90), @"Feed viewport did not restore");
             for (UIView *item in self.fixture.right.items) HGCheck(CATransform3DIsIdentity(item.layer.sublayerTransform), @"Right visual scale did not restore");
+            HGSteadyRightPasses = HGRightPasses;
+            HGWritePreference(@"enabled", @YES);
+            for (NSUInteger n = 0; n < 160; n++) [self.fixture.right layoutSubviews];
+            HGCheck(!HGEnabled(), @"Layout burst failed to disable enhancements");
+            HGCheck(HGSafetyReason().length > 0, @"Circuit breaker did not record its reason");
             HGFinish(nil); return;
         }
         self.phase++;
@@ -276,6 +290,13 @@ static BOOL closeTo(CGFloat a, CGFloat b) { return fabs(a - b) < 0.3; }
     } @catch (NSException *exception) { HGFinish(exception.reason); }
 }
 @end
+__attribute__((constructor))
+static void HGRecordNativeMethods(void) {
+    HGFeedFrameBeforeLoad = method_getImplementation(class_getInstanceMethod(FQVCollectionView.class, @selector(setFrame:)));
+    HGPlayerFrameBeforeLoad = method_getImplementation(class_getInstanceMethod(FQVPlayer.class, @selector(setFrame:)));
+    HGItemBeforeLoad = method_getImplementation(class_getInstanceMethod(HGFixtureLayout.class, @selector(layoutAttributesForItemAtIndexPath:)));
+    HGSizeBeforeLoad = method_getImplementation(class_getInstanceMethod(HGFixtureLayout.class, @selector(collectionViewContentSize)));
+}
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
