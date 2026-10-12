@@ -101,7 +101,7 @@ static void HGLayoutRight(UIView *container) {
                                                               CGAffineTransformMakeScale(scale, scale));
         HGApply(^{
             item.transform = transform;
-            item.center = CGPointMake(CGRectGetWidth(container.bounds) - source.size.width * scale / 2.0,
+            item.center = CGPointMake(CGRectGetWidth(container.bounds) - MAX(44.0, source.size.width * scale) / 2.0,
                                       y + pitch / 2.0);
         });
         state.appliedTransform = transform;

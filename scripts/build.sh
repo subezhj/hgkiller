@@ -10,7 +10,7 @@ xcrun --sdk iphoneos clang \
   -dynamiclib -fobjc-arc -fblocks -O2 -Wall -Wextra \
   -Wno-unused-parameter -Wno-deprecated-declarations \
   -I src src/HGCore.m src/HGChrome.m src/HGLayout.m src/HGSettings.m src/HGEntry.m \
-  -framework UIKit -framework Foundation -framework QuartzCore \
+  -framework UIKit -framework Foundation -framework QuartzCore -framework CoreGraphics \
   -Wl,-install_name,@rpath/hgkiller.dylib \
   -o build/hgkiller.dylib
 codesign --force --sign - --timestamp=none build/hgkiller.dylib
