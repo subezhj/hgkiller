@@ -7,6 +7,16 @@ int main(void) {
     assert(near(tab.x, 24) && near(tab.y, 778));
     assert(near(tab.width, 354) && near(tab.height, 54));
     assert(tab.y + tab.height <= 874 - 34);
+    HGRect low = HGGlassRectWithHeight(402, 874, 34, 44);
+    HGRect high = HGGlassRectWithHeight(402, 874, 34, 80);
+    assert(near(low.y, 788) && near(low.height, 44));
+    assert(near(high.y, 752) && near(high.height, 80));
+    assert(near(HGClampTabHeight(NAN), 54) && near(HGClampTabHeight(1), 44));
+    for (unsigned long i = 0; i < 3; i++) {
+        HGRect slot = HGTabButtonRect(354, 54, i, 3);
+        assert(near(slot.width, 114) && near(slot.x + slot.width / 2, 63 + i * 114));
+        assert(slot.x >= 0 && slot.x + slot.width <= 354);
+    }
     HGRect compact = HGGlassRect(320, 568, 0);
     assert(near(compact.width, 288) && compact.y >= 0);
     HGRect landscape = HGVideoRect(402, 874, 1920, 1080, 1);

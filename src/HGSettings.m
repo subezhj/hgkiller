@@ -75,6 +75,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         ],
         @[
             @{@"key": @"tab.glass", @"title": @"悬浮液态玻璃底栏"},
+            @{@"key": @"tab.height", @"title": @"底栏高度", @"slider": @YES, @"unit": @"pt", @"min": @44, @"max": @80},
             @{@"key": @"video.extend", @"title": @"视频延伸至屏幕底部"},
             @{@"key": @"video.fillPortrait", @"title": @"竖屏视频裁切铺满"}
         ],
@@ -104,7 +105,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         case 1: return @"关闭某项后自动收紧排列；大小可调为 55%–100%。";
         case 2: return @"视频延伸到底栏后方，进度条保留。液态玻璃需要 iOS 26 或更高版本，旧系统使用磨砂效果。仅高比例竖屏视频裁切铺满，横屏视频保持比例。";
         case 3: return @"调整首页顶部分类与搜索文字，保留原来的入口。";
-        default: return @"hgkiller 0.1.0 · 红果短剧 7.3.9 适配";
+        default: return @"hgkiller 0.1.1 · 红果短剧 7.3.9 适配";
     }
 }
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)path {
@@ -121,15 +122,15 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         cell.textLabel.text = nil;
         CGFloat width = CGRectGetWidth(tableView.bounds) - 40.0;
         UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 10, MAX(100, width - 32), 22)];
-        title.text = [NSString stringWithFormat:@"%@  %.0f%%", row[@"title"], HGNumber(key) * 100];
+        title.text = [NSString stringWithFormat:[row[@"unit"] isEqualToString:@"pt"] ? @"%@  %.0f pt" : @"%@  %.0f%%", row[@"title"], HGNumber(key) * ([row[@"unit"] isEqualToString:@"pt"] ? 1 : 100)];
         title.font = [UIFont systemFontOfSize:16];
         title.autoresizingMask = UIViewAutoresizingFlexibleWidth;
         title.tag = 901;
         [cell.contentView addSubview:title];
         UISlider *slider = [[UISlider alloc] initWithFrame:CGRectMake(16, 38, MAX(100, width - 32), 34)];
         slider.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-        slider.minimumValue = 0.55;
-        slider.maximumValue = 1.0;
+        slider.minimumValue = row[@"min"] ? [row[@"min"] floatValue] : 0.55;
+        slider.maximumValue = row[@"max"] ? [row[@"max"] floatValue] : 1.0;
         slider.value = HGNumber(key);
         slider.continuous = NO;
         slider.tag = tag;
@@ -156,11 +157,12 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
 }
 - (void)sliderChanged:(UISlider *)sender {
     NSDictionary *row = HGRows()[sender.tag / 100][sender.tag % 100];
-    CGFloat value = round(sender.value * 100.0) / 100.0;
+    BOOL points = [row[@"unit"] isEqualToString:@"pt"];
+    CGFloat value = points ? round(sender.value) : round(sender.value * 100.0) / 100.0;
     sender.value = value;
     HGWritePreference(row[@"key"], @(value));
     UILabel *title = (id)[sender.superview viewWithTag:901];
-    title.text = [NSString stringWithFormat:@"%@  %.0f%%", row[@"title"], value * 100.0];
+    title.text = [NSString stringWithFormat:points ? @"%@  %.0f pt" : @"%@  %.0f%%", row[@"title"], points ? value : value * 100.0];
 }
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)path {
     [tableView deselectRowAtIndexPath:path animated:YES];
@@ -183,7 +185,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         NSString *message = [NSString stringWithFormat:@"红果版本：%@\n底栏：%@\n%@",
                              version, glass, missing.count ? [@"未找到类：\n" stringByAppendingString:[missing componentsJoinedByString:@"\n"]]
                                                           : @"目标类已加载。\n实际布局仍需真机验证。"];
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.0"
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.1"
                                                                       message:message preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:alert animated:YES completion:nil];

@@ -18,6 +18,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Compile geometry tests and iOS dylib
         run: bash scripts/build.sh
+      - name: Test UIKit layout convergence on simulator
+        run: bash scripts/test-uikit.sh
       - name: Upload hgkiller
         uses: actions/upload-artifact@v4
         with:
@@ -25,4 +27,5 @@ jobs:
           path: |
             build/hgkiller.dylib
             build/SHA256SUMS.txt
+            build/uikit-regression-results.json
           if-no-files-found: error

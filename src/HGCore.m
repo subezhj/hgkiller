@@ -20,7 +20,7 @@ static NSDictionary *HGDefaults(void) {
         @"right.avatar": @YES, @"right.collect": @YES,
         @"right.comment": @YES, @"right.like": @YES, @"right.share": @YES,
         @"right.scale": @0.80,
-        @"tab.glass": @YES, @"video.extend": @YES,
+        @"tab.glass": @YES, @"tab.height": @54.0, @"video.extend": @YES,
         @"video.fillPortrait": @YES,
         @"top.enabled": @YES, @"top.scale": @0.85
     };
@@ -35,6 +35,8 @@ static void HGReloadPreferences(void) {
         double value = [values[key] doubleValue];
         values[key] = @(isfinite(value) ? MAX(0.55, MIN(1.0, value)) : [HGDefaults()[key] doubleValue]);
     }
+    double tabHeight = [values[@"tab.height"] doubleValue];
+    values[@"tab.height"] = @(isfinite(tabHeight) ? MAX(44.0, MIN(80.0, tabHeight)) : 54.0);
     HGPreferences = [values copy];
 }
 void HGInitializePreferences(void) { HGReloadPreferences(); }
@@ -100,13 +102,15 @@ void HGSetFrame(UIView *view, CGRect frame) {
     if (!view || CGRectIsEmpty(frame) || CGRectIsNull(frame)) return;
     HGFrameState *state = HGFrame(view);
     state.applied = YES;
-    if (!CGRectEqualToRect(view.frame, frame)) HGApply(^{ view.frame = frame; });
+    if (fabs(view.frame.origin.x - frame.origin.x) > 0.1 || fabs(view.frame.origin.y - frame.origin.y) > 0.1 ||
+        fabs(view.frame.size.width - frame.size.width) > 0.1 || fabs(view.frame.size.height - frame.size.height) > 0.1)
+        HGApply(^{ view.frame = frame; });
 }
 void HGRestoreFrame(UIView *view) {
     HGFrameState *state = objc_getAssociatedObject(view, &HGFrameKey);
     if (!state.applied) return;
     state.applied = NO;
-    HGApply(^{ view.frame = state.host; });
+    if (!CGRectEqualToRect(view.frame, state.host)) HGApply(^{ view.frame = state.host; });
 }
 BOOL HGInstall(Class cls, SEL selector, id (^builder)(IMP)) {
     if (!cls || !selector) return NO;
@@ -158,9 +162,14 @@ void HGHookFrame(NSString *name, CGRect (^adjust)(UIView *, CGRect)) {
         };
     });
 }
-static void HGMarkTree(UIView *view) {
-    [view setNeedsLayout];
-    for (UIView *child in view.subviews) HGMarkTree(child);
+static void HGMarkTargets(UIView *view) {
+    for (NSString *name in @[@"SSShortVideoRightInteractionView", @"SSTabBar", @"CYLTabBar",
+                            @"SSVideoSeriesFeedHeaderView", @"FQVCollectionView",
+                            @"SSShortVideoBottomDistributionView", @"FQVShortVideoBaseInsertView",
+                            @"FQVShortVideoProgressView", @"TTPlayerView"]) {
+        if (HGIsClass(view, name)) { [view setNeedsLayout]; break; }
+    }
+    for (UIView *child in view.subviews) HGMarkTargets(child);
 }
 void HGRefreshViews(void) {
     static BOOL queued;
@@ -173,8 +182,7 @@ void HGRefreshViews(void) {
             for (UIWindow *window in ((UIWindowScene *)scene).windows) {
                 if (window.windowLevel != UIWindowLevelNormal || window.hidden ||
                     !HGIsClass(window.rootViewController, @"SSRootViewController")) continue;
-                HGMarkTree(window);
-                [window layoutIfNeeded];
+                HGMarkTargets(window); // Let UIKit commit once on its normal run loop.
             }
         }
     });
