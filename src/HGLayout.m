@@ -139,11 +139,5 @@ void HGInstallFeatures(void) {
         if (HGCanExtend(view) && frame.origin.y > 100) frame.origin.y = MAX(0, CGRectGetHeight(view.superview.bounds) - frame.size.height);
         return frame;
     });
-    for (NSString *name in @[@"CYLTabBar", @"SSTabBar"]) {
-        HGHookFrame(name, ^CGRect(UIView *view, CGRect frame) { return HGTabFrame(view, frame); });
-        HGHookLayout(name, ^(UIView *view) { HGLayoutTab(view); });
-    }
-    HGHookFrame(@"SSTabBarTextButton", ^CGRect(UIView *view, CGRect frame) { return frame; });
-    HGHookControllerLayout(@"SSTabBarController", ^(UIViewController *controller) {
-        HGInstallTabBar();
+    HGInstallTabBar();
 }

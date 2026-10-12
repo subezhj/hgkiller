@@ -177,13 +177,19 @@ void HGRefreshViews(void) {
     queued = YES;
     dispatch_async(dispatch_get_main_queue(), ^{
         queued = NO;
+        NSMutableArray<UIWindow *> *windows = [NSMutableArray array];
         for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
             if (![scene isKindOfClass:UIWindowScene.class]) continue;
-            for (UIWindow *window in ((UIWindowScene *)scene).windows) {
-                if (window.windowLevel != UIWindowLevelNormal || window.hidden ||
-                    !HGIsClass(window.rootViewController, @"SSRootViewController")) continue;
-                HGMarkTargets(window); // Let UIKit commit once on its normal run loop.
-            }
+            [windows addObjectsFromArray:((UIWindowScene *)scene).windows];
+        }
+        // Legacy AppDelegate apps may have no connected UIScene.
+        for (UIWindow *window in UIApplication.sharedApplication.windows) {
+            if (![windows containsObject:window]) [windows addObject:window];
+        }
+        for (UIWindow *window in windows) {
+            if (window.windowLevel != UIWindowLevelNormal || window.hidden ||
+                !HGIsClass(window.rootViewController, @"SSRootViewController")) continue;
+            HGMarkTargets(window);
         }
     });
 }
