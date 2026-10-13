@@ -42,6 +42,12 @@ static void HGWriteProgress(NSInteger phase) {
 @implementation FQVShortVideoListViewController @end
 @interface SSVideoSeriesFeedHeaderView : UIView @end
 @implementation SSVideoSeriesFeedHeaderView @end
+@interface SSShortVideoOutterSeriesLeftContainerView : UIView @end
+@implementation SSShortVideoOutterSeriesLeftContainerView @end
+@interface YYLabel : UIView
+@property(nonatomic, strong) UIFont *font;
+@end
+@implementation YYLabel @end
 @interface FQVCollectionView : UICollectionView @end
 @implementation FQVCollectionView @end
 @interface FQVShortVideoCell : UICollectionViewCell @end
@@ -284,7 +290,7 @@ static UIView *HGFixtureDramaContainer;
     HGFixtureBottomBlur.frame = nested.bounds; [nested addSubview:HGFixtureBottomBlur];
     HGFixtureIcon = [[UIImageView alloc] initWithFrame:CGRectMake(16, 12, 20, 20)]; [content addSubview:HGFixtureIcon];
     HGFixtureBottomLabel = [[UILabel alloc] initWithFrame:CGRectMake(38, 12, 200, 20)]; HGFixtureBottomLabel.text = @"观看完整短剧"; [content addSubview:HGFixtureBottomLabel];
-    HGFixtureDramaContainer = [[UIView alloc] initWithFrame:CGRectMake(16, 645, 282, 80)];
+    HGFixtureDramaContainer = [[SSShortVideoOutterSeriesLeftContainerView alloc] initWithFrame:CGRectMake(16, 645, 282, 80)];
     [fixture.list.view addSubview:HGFixtureDramaContainer];
     HGFixtureDramaTitle = [[UILabel alloc] initWithFrame:CGRectMake(0, 30, 240, 22)];
     HGFixtureDramaTitle.text = @"别叫姐姐"; HGFixtureDramaTitle.font = [UIFont systemFontOfSize:18];
@@ -373,6 +379,18 @@ static UIView *HGFixtureDramaContainer;
             HGCheck(closeTo(CGRectGetMaxY(self.fixture.bar.frame), self.window.bounds.size.height), @"Cold launch needed navigation to align tab");
             HGResetPreferences(); [self.fixture.bar layoutSubviews];
             for (UIView *item in self.fixture.right.items) HGCheck(closeTo(item.transform.a, 0.8), @"Cold launch scaled only one interaction");
+            YYLabel *description = [[YYLabel alloc] initWithFrame:CGRectMake(0, 60, 240, 20)]; description.font = [UIFont systemFontOfSize:16];
+            [HGFixtureDramaContainer addSubview:description];
+            HGWritePreference(@"caption.titleScale", @0.8); HGWritePreference(@"caption.descriptionScale", @0.75);
+            [HGFixtureDramaContainer layoutSubviews];
+            HGCheck(closeTo(HGFixtureDramaTitle.font.pointSize, 14.4), @"Drama title custom size ignored");
+            HGCheck(closeTo(description.font.pointSize, 12), @"YYLabel description custom size ignored");
+            for (NSUInteger n = 0; n < 8; n++) { HGFixtureDramaTitle.font = [UIFont systemFontOfSize:18]; description.font = [UIFont systemFontOfSize:16]; }
+            HGCheck(closeTo(HGFixtureDramaTitle.font.pointSize, 14.4) && closeTo(description.font.pointSize, 12), @"Host reset defeated caption font customization");
+            HGWritePreference(@"caption.enabled", @NO); [HGFixtureDramaContainer layoutSubviews];
+            HGCheck(closeTo(HGFixtureDramaTitle.font.pointSize, 18) && closeTo(description.font.pointSize, 16), @"Caption font failed to restore");
+            HGWritePreference(@"caption.titleScale", @1); HGWritePreference(@"caption.descriptionScale", @1); HGWritePreference(@"caption.enabled", @YES);
+            [description removeFromSuperview];
             UIView *header = [[SSVideoSeriesFeedHeaderView alloc] initWithFrame:CGRectMake(0, 62, 300, 44)];
             [self.fixture.feed.view addSubview:header];
             UILabel *title = [UILabel new]; [header addSubview:title];
@@ -553,6 +571,7 @@ static void HGRecordNativeMethods(void) {
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
+
 
 
 

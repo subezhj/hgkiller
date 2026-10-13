@@ -1,5 +1,11 @@
 # hgkiller
 
+## 0.1.14 播放页文案字号
+
+根据 FLEX 1791895069，剧名位于 SSShortVideoOutterSeriesLeftContainerView 的标题 UILabel，集数简介使用 YYLabel，展开文字为同容器中的 UILabel。新增播放页文案总开关和独立的剧名、集数简介/展开字号比例（55%–100%），默认原字号。涵盖首页与合集的对应左侧信息容器，保持原生 frame/bounds 与入口布局。
+
+底栏新方案仍需选择背景显示高度还是页面占位高度；两者影响不同。合集右侧位置修复已包含，底栏高度修改暂不自动恢复。
+
 ## 0.1.13 合集播放右侧位置修复
 
 FLEX 1791876865 显示右侧容器高 342 pt，而评论和点赞已经排到 y=394.6、528.8，超出容器。之前位移使用缓存原生 frame 的中心，无法覆盖宿主直接更新 center/bounds 的情况。
@@ -196,6 +202,7 @@ iOS 编译通过仅证明源码可编译和动态库可生成；**未完成真�
 hgkiller 为针对红果类体系重新实现的工程，不依赖其抖音私有类。
 
 系统材质 API：[Apple UIGlassEffect](https://developer.apple.com/documentation/uikit/uiglasseffect)。
+
 
 
 
