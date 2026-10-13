@@ -1,5 +1,13 @@
 # hgkiller
 
+## 0.1.6 原生点击坐标修复
+
+按用户要求暂时停用布局次数保护；历史记录保留，总开关仍可手动关闭。
+
+0.1.5 只移动 sublayer 像素，宿主触摸或手势仍可能按原生位置判断。0.1.6 使用控件整体 UIView.transform 进行缩放与位移，由 UIKit 统一转换显示、手势和 UIControl 坐标。宿主布局及 setFrame 前恢复原始 transform，防止缩放影响宿主 frame 的尺寸计算；每轮更新结束后重新统一应用。
+
+模拟器夹具加入原生 UIButton、真实窗口点转换与原生 target-action 检查；不能替代红果真实手势和按钮验证。播放器与分页处理不变。
+
 ## 0.1.5 首次显示与底部背景修复
 
 右侧控件保留原生 frame、bounds 和 UIView.transform，通过图层缩放与位移排列像素。间距按缩放后的高度计算，0 pt 表示不增加空隙。进入窗口时注册，在主线程每轮更新结束前统一处理全部右侧控件，覆盖宿主晚于布局回调的重设；点击按显示位置映射回原生控件。
@@ -138,6 +146,7 @@ iOS 编译通过仅证明源码可编译和动态库可生成；**未完成真�
 hgkiller 为针对红果类体系重新实现的工程，不依赖其抖音私有类。
 
 系统材质 API：[Apple UIGlassEffect](https://developer.apple.com/documentation/uikit/uiglasseffect)。
+
 
 
 
