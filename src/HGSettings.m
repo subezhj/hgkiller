@@ -73,21 +73,15 @@ static char HGHeaderKey;
         self.caption = [UILabel new]; self.slider = [UISlider new];
         self.caption.font = [UIFont systemFontOfSize:16];
         self.caption.tag = 901;
-        self.caption.translatesAutoresizingMaskIntoConstraints = NO;
-        self.slider.translatesAutoresizingMaskIntoConstraints = NO;
         [self.contentView addSubview:self.caption]; [self.contentView addSubview:self.slider];
-        [NSLayoutConstraint activateConstraints:@[
-            [self.caption.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:16],
-            [self.caption.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-16],
-            [self.caption.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:10],
-            [self.caption.heightAnchor constraintEqualToConstant:22],
-            [self.slider.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:16],
-            [self.slider.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-16],
-            [self.slider.topAnchor constraintEqualToAnchor:self.caption.bottomAnchor constant:6],
-            [self.slider.heightAnchor constraintEqualToConstant:34]
-        ]];
     }
     return self;
+}
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    CGFloat width = MAX(0, CGRectGetWidth(self.contentView.bounds) - 32);
+    self.caption.frame = CGRectMake(16, 10, width, 22);
+    self.slider.frame = CGRectMake(16, 38, width, 34);
 }
 @end
 static NSString *HGSettingsState(void) {
@@ -269,3 +263,4 @@ void HGInstallSettings(void) {
         };
     });
 }
+
