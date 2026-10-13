@@ -135,10 +135,10 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     switch (section) {
         case 0: return @"关闭后恢复 hgkiller 调整的布局。触发保护后可重新打开总开关尝试，循环保护会继续生效。";
-        case 1: return @"关闭某项后自动收紧排列；大小可调为 55%–100%。";
+        case 1: return @"关闭某项后自动收紧排列；大小 55%–100%，间距 0–24 pt。首次显示与后续布局统一应用。";
         case 2: return @"视频扩展和裁切继续暂停，保留原播放器与分页。底栏文字仅视觉居中，点击仍交由原按钮处理。";
         case 3: return @"调整首页顶部分类与搜索文字，保留原来的入口。";
-        default: return @"hgkiller 0.1.4 · 红果短剧 7.3.9 适配";
+        default: return @"hgkiller 0.1.5 · 红果短剧 7.3.9 适配";
     }
 }
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)path {
@@ -220,7 +220,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
                                                           : @"目标类已加载。\n实际布局仍需真机验证。"];
         message = [message stringByAppendingFormat:@"\n\n当前状态：%@", HGSettingsState()];
         if (HGSafetyReason().length) message = [message stringByAppendingFormat:@"\n\n上次保护记录（历史）：%@", HGSafetyReason()];
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.4"
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.5"
                                                                       message:message preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:alert animated:YES completion:nil];
@@ -264,6 +264,7 @@ void HGInstallSettings(void) {
         };
     });
 }
+
 
 
 

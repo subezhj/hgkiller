@@ -1,5 +1,6 @@
 #import "HGCore.h"
 #import "HGGeometry.h"
+#import <limits.h>
 
 static char HGTabStateKey, HGDecorationKey, HGContentKey;
 @interface HGTabState : NSObject
@@ -174,18 +175,49 @@ static void HGLayoutTab(UIView *view) {
     for (UIView *button in HGAllTabButtons(view)) HGCenterTabPixels(button);
     state.active = active;
 }
+static BOOL HGPlaybackBottom(UIView *view) {
+    if (!view.window || view.window.windowLevel != UIWindowLevelNormal) return NO;
+    for (UIView *node = view; node; node = node.superview)
+        if (HGIsClass(node.nextResponder, @"FQVShortVideoListViewController")) return YES;
+    return HGIsFeedView(view);
+}
 static void HGDistributionStyle(UIView *view, NSUInteger depth, BOOL active) {
     HGDecoration(view, active, NO);
     if (!depth) return;
     for (UIView *child in view.subviews) {
-        if ([child isKindOfClass:UIControl.class] || [child isKindOfClass:UILabel.class]) continue;
-        if (HGIsClass(child, @"SSShortVideoDistributionContentView") ||
-            ([child isMemberOfClass:UIView.class] && child.bounds.size.width >= view.bounds.size.width * 0.9))
+        if ([child isKindOfClass:UILabel.class] || [child isKindOfClass:UIControl.class] || [child isKindOfClass:UIStackView.class]) continue;
+        BOOL full = child.bounds.size.width >= view.bounds.size.width * 0.85;
+        BOOL paint = [child isKindOfClass:UIImageView.class] || [child isKindOfClass:UIVisualEffectView.class];
+        if (full && paint) { HGDecoration(child, active, YES); continue; }
+        if (HGIsClass(child, @"SSShortVideoDistributionContentView") || (full && [child isMemberOfClass:UIView.class]))
             HGDistributionStyle(child, depth - 1, active);
     }
 }
+static NSHashTable<UIView *> *HGBottomViews;
+static void HGCleanBottom(UIView *view) {
+    BOOL active = HGEnabled() && HGPlaybackBottom(view);
+    HGDistributionStyle(view, 4, active);
+    if (HGIsClass(view.superview, @"FQVShortVideoBaseInsertView")) HGDecoration(view.superview, active, NO);
+}
+static void HGTrackBottom(UIView *view) {
+    if (!HGBottomViews) HGBottomViews = [NSHashTable weakObjectsHashTable];
+    [HGBottomViews addObject:view]; HGCleanBottom(view);
+}
+static void HGFindBottom(UIView *root) {
+    if (HGIsClass(root, @"SSShortVideoBottomDistributionView")) { HGTrackBottom(root); return; }
+    for (UIView *child in root.subviews) HGFindBottom(child);
+}
 void HGInstallTabBar(void) {
-    HGHookLayout(@"SSShortVideoBottomDistributionView", ^(UIView *v) { HGDistributionStyle(v, 3, HGEnabled() && HGBool(@"tab.glass") && HGIsFeedView(v)); });
+    HGHookLayout(@"SSShortVideoBottomDistributionView", ^(UIView *v) { HGTrackBottom(v); });
+    SEL moved = @selector(didMoveToWindow);
+    HGInstall(NSClassFromString(@"SSShortVideoBottomDistributionView"), moved, ^id(IMP original) {
+        return ^(UIView *view) { ((void (*)(id, SEL))original)(view, moved); HGTrackBottom(view); };
+    });
+    HGHookControllerLayout(@"FQVShortVideoListViewController", ^(UIViewController *controller) { HGFindBottom(controller.view); });
+    CFRunLoopObserverRef observer = CFRunLoopObserverCreateWithHandler(kCFAllocatorDefault, kCFRunLoopBeforeWaiting, true, LONG_MAX, ^(CFRunLoopObserverRef observer, CFRunLoopActivity activity) {
+        for (UIView *view in HGBottomViews.allObjects) if (view.window) HGApply(^{ HGCleanBottom(view); });
+    });
+    CFRunLoopAddObserver(CFRunLoopGetMain(), observer, kCFRunLoopCommonModes); CFRelease(observer);
     for (NSString *name in @[@"CYLTabBar", @"SSTabBar"]) {
         HGHookFrame(name, ^CGRect(UIView *v, CGRect f) { return HGTabFrame(v, f); });
         HGHookLayout(name, ^(UIView *v) { HGLayoutTab(v); });
@@ -213,8 +245,11 @@ void HGInstallTabBar(void) {
         };
     });
     HGHookControllerLayout(@"SSTabBarController", ^(UIViewController *controller) {
+        BOOL playing = HGFindView(controller.view, @"FQVShortVideoListViewController") != nil || HGFindView(controller.view, @"SSShortVideoRightInteractionView") != nil;
+        HGDecoration(controller.view, HGEnabled() && playing && HGBool(@"tab.glass"), NO);
         for (NSString *name in @[@"CYLTabBar", @"SSTabBar"]) {
             UIView *bar = HGFindView(controller.view, name); if (bar) HGLayoutTab(bar);
         }
     });
 }
+

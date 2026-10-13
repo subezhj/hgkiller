@@ -1,5 +1,6 @@
 #import "HGCore.h"
 #import "HGGeometry.h"
+#import <limits.h>
 
 static char HGRightStateKey, HGFontStateKey;
 static BOOL HGInVideoControls(UIView *view) {
@@ -24,6 +25,7 @@ static NSString *HGRightKey(UIView *view) {
 @property(nonatomic) CATransform3D hostSublayers;
 @property(nonatomic) CATransform3D appliedSublayers;
 @property(nonatomic) BOOL scaled;
+@property(nonatomic) BOOL hostClips;
 @end
 @implementation HGRightState
 @end
@@ -39,7 +41,7 @@ static HGRightState *HGRightStateFor(UIView *view) {
     HGRightState *state = objc_getAssociatedObject(view, &HGRightStateKey);
     if (!state) {
         state = [HGRightState new];
-        state.hostHidden = view.hidden;
+        state.hostHidden = view.hidden; state.hostClips = view.layer.masksToBounds;
         state.hostSublayers = view.layer.sublayerTransform;
         objc_setAssociatedObject(view, &HGRightStateKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
@@ -57,24 +59,20 @@ static BOOL HGRightHidden(UIView *view) {
     HGRightState *state = HGRightStateFor(view);
     return state.hostHidden || (HGEnabled() && HGInVideoControls(view) && !HGBool(HGRightKey(view)));
 }
-static CGRect HGRightTargetFrame(UIView *item, CGRect host) {
+static CGPoint HGRightVisualCenter(UIView *item) {
     UIView *container = item.superview;
-    if (!HGEnabled() || !HGInVideoControls(item) || !HGIsClass(container, @"SSShortVideoRightInteractionView")) return host;
+    CGFloat scale = HGNumber(@"right.scale"), gap = HGNumber(@"right.gap"), total = 0;
     NSArray *items = HGRightItems(container);
-    CGFloat total = 0, gap = HGNumber(@"right.gap"), scale = HGNumber(@"right.scale");
-    NSUInteger visible = 0; UIView *last = nil;
-    for (UIView *view in items) if (!HGRightHidden(view)) {
-        total += MAX(44.0, HGHostFrame(view).size.height * scale + gap);
-        visible++; last = view;
-    }
-    if (visible) total += HGHostFrame(last).size.height - MAX(44.0, HGHostFrame(last).size.height * scale + gap);
-    CGFloat y = MAX(0.0, CGRectGetHeight(container.bounds) - total);
+    for (UIView *view in items) if (!HGRightHidden(view)) total += view.bounds.size.height * scale + gap;
+    total = MAX(0, total - gap);
+    CGFloat y = MAX(0, container.bounds.size.height - total);
     for (UIView *view in items) {
         if (HGRightHidden(view)) continue;
-        if (view == item) { host.origin.y = y; break; }
-        y += MAX(44.0, HGHostFrame(view).size.height * scale + gap);
+        CGFloat h = view.bounds.size.height * scale;
+        if (view == item) return CGPointMake(CGRectGetMidX(item.frame), y + h / 2);
+        y += h + gap;
     }
-    return host;
+    return item.center;
 }
 static void HGApplyRightItem(UIView *item) {
     HGRightState *state = HGRightStateFor(item);
@@ -84,16 +82,32 @@ static void HGApplyRightItem(UIView *item) {
     if (state.scaled && !CATransform3DEqualToTransform(item.layer.sublayerTransform, state.appliedSublayers)) {
         state.hostSublayers = item.layer.sublayerTransform;
     }
-    CATransform3D target = active ? CATransform3DConcat(state.hostSublayers,
-        CATransform3DMakeScale(HGNumber(@"right.scale"), HGNumber(@"right.scale"), 1.0)) : state.hostSublayers;
+    CATransform3D target = state.hostSublayers;
+    if (active) {
+        CGPoint center = HGRightVisualCenter(item);
+        target = CATransform3DConcat(state.hostSublayers, CATransform3DMakeScale(HGNumber(@"right.scale"), HGNumber(@"right.scale"), 1));
+        target.m41 += center.x - item.center.x;
+        target.m42 += center.y - item.center.y;
+    }
     // Scale pixels inside the unchanged hit-test view. Never reset UIView.transform or bounds in layout.
+    [CATransaction begin]; [CATransaction setDisableActions:YES];
     if (!CATransform3DEqualToTransform(item.layer.sublayerTransform, target)) {
         HGApply(^{ item.layer.sublayerTransform = target; });
     }
+    [CATransaction commit];
     state.appliedSublayers = target;
     state.scaled = active;
-    if (active) HGSetFrame(item, HGRightTargetFrame(item, HGHostFrame(item)));
-    else HGRestoreFrame(item);
+    HGApply(^{ if (item.layer.masksToBounds != (active ? NO : state.hostClips)) item.layer.masksToBounds = active ? NO : state.hostClips; });
+}
+static NSHashTable<UIView *> *HGRightContainers;
+static void HGTrackRight(UIView *container) {
+    if (!HGRightContainers) HGRightContainers = [NSHashTable weakObjectsHashTable];
+    [HGRightContainers addObject:container];
+    for (UIView *item in HGRightItems(container)) HGApplyRightItem(item);
+}
+static void HGFindRightContainers(UIView *root) {
+    if (HGIsClass(root, @"SSShortVideoRightInteractionView")) { HGTrackRight(root); return; }
+    for (UIView *child in root.subviews) HGFindRightContainers(child);
 }
 static BOOL HGInHeader(UIView *view) {
     for (UIView *parent = view; parent; parent = parent.superview) if (HGIsClass(parent, @"SSVideoSeriesFeedHeaderView")) return YES;
@@ -131,10 +145,19 @@ static void HGScaleHeaderFonts(UIView *root) {
 }
 void HGInstallChrome(void) {
     HGHookLayout(@"SSShortVideoRightInteractionView", ^(UIView *container) {
-        for (UIView *item in HGRightItems(container)) HGApplyRightItem(item);
+        HGTrackRight(container);
     });
+    HGHookControllerLayout(@"FQVShortVideoListViewController", ^(UIViewController *controller) { HGFindRightContainers(controller.view); });
+    SEL moved = @selector(didMoveToWindow);
+    HGInstall(NSClassFromString(@"SSShortVideoRightInteractionView"), moved, ^id(IMP original) {
+        return ^(UIView *container) { ((void (*)(id, SEL))original)(container, moved); HGTrackRight(container); };
+    });
+    CFRunLoopObserverRef observer = CFRunLoopObserverCreateWithHandler(kCFAllocatorDefault, kCFRunLoopBeforeWaiting, true, LONG_MAX, ^(CFRunLoopObserverRef observer, CFRunLoopActivity activity) {
+        for (UIView *container in HGRightContainers.allObjects) if (container.window)
+            HGApply(^{ for (UIView *item in HGRightItems(container)) HGApplyRightItem(item); });
+    });
+    CFRunLoopAddObserver(CFRunLoopGetMain(), observer, kCFRunLoopCommonModes); CFRelease(observer);
     for (NSString *name in HGRightClasses()) {
-        HGHookFrame(name, ^CGRect(UIView *view, CGRect frame) { return HGRightTargetFrame(view, frame); });
         HGHookLayout(name, ^(UIView *view) { HGApplyRightItem(view); });
         SEL hidden = @selector(setHidden:);
         HGInstall(NSClassFromString(name), hidden, ^id(IMP original) {
@@ -153,11 +176,15 @@ void HGInstallChrome(void) {
             if (HGEnabled() && HGInVideoControls(container) && !container.hidden && container.alpha > 0.01 && container.userInteractionEnabled && [container pointInside:point withEvent:event]) {
                 UIView *nearest = nil; CGFloat distance = CGFLOAT_MAX;
                 for (UIView *item in HGRightItems(container)) if (!HGRightHidden(item) && item.userInteractionEnabled && item.alpha > 0.01) {
-                    CGFloat d = fabs(point.y - CGRectGetMidY(item.frame));
+                    CGFloat d = fabs(point.y - HGRightVisualCenter(item).y);
                     if (d < distance) { nearest = item; distance = d; }
                 }
                 if (nearest && distance <= CGRectGetHeight(nearest.bounds) / 2)
-                    return [nearest hitTest:[nearest convertPoint:point fromView:container] withEvent:event];
+                                    {
+                    CGPoint visual = HGRightVisualCenter(nearest);
+                    CGPoint local = CGPointMake(nearest.bounds.size.width / 2 + point.x - visual.x, nearest.bounds.size.height / 2 + point.y - visual.y);
+                    return [nearest hitTest:local withEvent:event] ?: nearest;
+                }
             }
             return ((UIView *(*)(id, SEL, CGPoint, UIEvent *))original)(container, hitSelector, point, event);
         };
@@ -203,6 +230,8 @@ void HGInstallChrome(void) {
     HGHookLayout(@"SSVideoSeriesFeedHeaderView", ^(UIView *view) { HGScaleHeaderFonts(view); });
     HGHookLayout(@"FQRJXCategoryCollectionView", ^(UIView *view) { if (HGInHeader(view)) HGScaleHeaderFonts(view); });
 }
+
+
 
 
 

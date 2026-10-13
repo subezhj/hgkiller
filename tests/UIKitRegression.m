@@ -20,6 +20,7 @@ static void HGCheck(BOOL condition, NSString *message) {
 }
 static BOOL closeTo(CGFloat a, CGFloat b) { return fabs(a - b) < 0.3; }
 
+static CGFloat HGVisualY(UIView *view) { return view.center.y + view.layer.sublayerTransform.m42; }
 static BOOL rectClose(CGRect a, CGRect b) {
     return fabs(a.origin.x - b.origin.x) < 0.01 && fabs(a.origin.y - b.origin.y) < 0.01 &&
            fabs(a.size.width - b.size.width) < 0.01 && fabs(a.size.height - b.size.height) < 0.01;
@@ -196,6 +197,16 @@ static void HGWriteProgress(NSInteger phase) {
 - (void)tapped:(id)sender { self.taps++; }
 @end
 
+@interface FQVShortVideoBaseInsertView : UIView @end
+@implementation FQVShortVideoBaseInsertView @end
+@interface SSShortVideoDistributionContentView : UIView @end
+@implementation SSShortVideoDistributionContentView @end
+@interface SSShortVideoBottomDistributionView : UIView @end
+@implementation SSShortVideoBottomDistributionView @end
+static UIView *HGFixtureBottom, *HGFixtureBottomParent;
+static UIImageView *HGFixtureBottomImage, *HGFixtureIcon;
+static UIVisualEffectView *HGFixtureBottomBlur;
+static UILabel *HGFixtureBottomLabel;
 @interface HGRegressionApp : UIResponder <UIApplicationDelegate, UICollectionViewDataSource>
 @property(nonatomic, strong) UIWindow *window;
 @property(nonatomic, strong) SSTabBarController *fixture;
@@ -231,6 +242,19 @@ static void HGWriteProgress(NSInteger phase) {
     fixture.bar = [[SSTabBar alloc] initWithFrame:CGRectMake(0, 790, 402, 84)];
     [fixture.view addSubview:fixture.bar];
     for (SSTabBarTextButton *button in fixture.bar.buttons) [button addTarget:fixture action:@selector(tapped:) forControlEvents:UIControlEventTouchUpInside];
+    HGFixtureBottomParent = [[FQVShortVideoBaseInsertView alloc] initWithFrame:CGRectMake(0, 740, 402, 44)];
+    HGFixtureBottomParent.backgroundColor = UIColor.grayColor;
+    [fixture.list.view addSubview:HGFixtureBottomParent];
+    HGFixtureBottom = [[SSShortVideoBottomDistributionView alloc] initWithFrame:HGFixtureBottomParent.bounds];
+    HGFixtureBottom.backgroundColor = UIColor.grayColor; [HGFixtureBottomParent addSubview:HGFixtureBottom];
+    UIView *content = [[SSShortVideoDistributionContentView alloc] initWithFrame:HGFixtureBottom.bounds];
+    content.backgroundColor = UIColor.grayColor; [HGFixtureBottom addSubview:content];
+    UIView *nested = [[UIView alloc] initWithFrame:content.bounds]; [content addSubview:nested];
+    HGFixtureBottomImage = [[UIImageView alloc] initWithFrame:nested.bounds]; [nested addSubview:HGFixtureBottomImage];
+    HGFixtureBottomBlur = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]];
+    HGFixtureBottomBlur.frame = nested.bounds; [nested addSubview:HGFixtureBottomBlur];
+    HGFixtureIcon = [[UIImageView alloc] initWithFrame:CGRectMake(16, 12, 20, 20)]; [content addSubview:HGFixtureIcon];
+    HGFixtureBottomLabel = [[UILabel alloc] initWithFrame:CGRectMake(38, 12, 200, 20)]; HGFixtureBottomLabel.text = @"观看完整短剧"; [content addSubview:HGFixtureBottomLabel];
     HGWriteProgress(-1);
     [self.window makeKeyAndVisible];
     [NSUserDefaults.standardUserDefaults setObject:@"SSTabBarTextButton layoutSubviews：历史测试记录" forKey:[HGPreferencePrefix stringByAppendingString:@"safety.lastReason"]];
@@ -296,6 +320,7 @@ static void HGWriteProgress(NSInteger phase) {
     @try {
         NSArray *scales = @[@0.55, @0.80, @1.0, @0.55, @0.80];
         if (self.phase == 0) {
+            for (UIView *item in self.fixture.right.items) HGCheck(closeTo(item.layer.sublayerTransform.m11, 0.8), @"Cold launch scaled only one interaction");
             UIView *header = [[SSVideoSeriesFeedHeaderView alloc] initWithFrame:CGRectMake(0, 62, 300, 44)];
             [self.fixture.feed.view addSubview:header];
             UILabel *title = [UILabel new]; [header addSubview:title];
@@ -325,11 +350,14 @@ static void HGWriteProgress(NSInteger phase) {
             [detail.view addSubview:detailRight]; [detailRight layoutSubviews];
             for (UIView *item in detailRight.items) HGCheck(closeTo(item.layer.sublayerTransform.m11, 0.8), @"Standalone all-episodes scaling missing");
             HGWritePreference(@"right.gap", @0); [detailRight layoutSubviews];
-            HGCheck(closeTo(detailRight.items[1].frame.origin.y - detailRight.items[0].frame.origin.y, 49.6), @"Right gap did not compact scaled items");
+            HGCheck(closeTo(HGVisualY(detailRight.items[1]) - HGVisualY(detailRight.items[0]), 49.6), @"Right gap did not compact scaled items");
             HGWritePreference(@"right.gap", @24); [detailRight layoutSubviews];
-            HGCheck(closeTo(detailRight.items[1].frame.origin.y - detailRight.items[0].frame.origin.y, 73.6), @"Right gap setting ineffective");
+            HGCheck(closeTo(HGVisualY(detailRight.items[1]) - HGVisualY(detailRight.items[0]), 73.6), @"Right gap setting ineffective");
             HGWritePreference(@"right.gap", @6);
             [detail.view removeFromSuperview]; [detail removeFromParentViewController];
+            HGCheck(HGFixtureBottomImage.hidden && HGFixtureBottomBlur.hidden, @"Nested bottom image or material remained visible");
+            HGCheck([HGFixtureBottom.backgroundColor isEqual:UIColor.clearColor] && [HGFixtureBottomParent.backgroundColor isEqual:UIColor.clearColor], @"Bottom parent paint remained gray");
+            HGCheck(!HGFixtureIcon.hidden && !HGFixtureBottomLabel.hidden, @"Bottom cleanup removed navigation content");
             [self checkTabHeight:54];
             [self checkSettingsState:@"正在运行"]; [self checkSliderMargins];
             HGCheck(method_getImplementation(class_getInstanceMethod(SSTabBarTextButton.class, @selector(setFrame:))) == HGButtonFrameBeforeLoad, @"Native tab frame method was hooked");
@@ -350,7 +378,15 @@ static void HGWriteProgress(NSInteger phase) {
             HGWritePreference(@"right.scale", scales[0]);
         } else if (self.phase <= scales.count) {
             double expected = [scales[self.phase - 1] doubleValue];
+            NSUInteger itemIndex = 0;
             for (UIView *item in self.fixture.right.items) {
+                HGCheck(closeTo(item.frame.origin.y, itemIndex * 74), @"Plugin changed native interaction frame");
+                CGFloat center = 284 - (4 * 62 * expected + 3 * HGNumber(@"right.gap")) + 31 * expected + itemIndex * (62 * expected + HGNumber(@"right.gap"));
+                HGCheck(closeTo(HGVisualY(item), center), @"Right visual spacing was overwritten by host layout");
+                CGPoint touch = CGPointMake(23, center);
+                UIView *hit = [self.fixture.right hitTest:touch withEvent:nil];
+                HGCheck(hit == item || [hit isDescendantOfView:item], @"Compact visual control touch mapped to wrong item");
+                itemIndex++;
                 HGCheck(closeTo(item.layer.sublayerTransform.m11, expected), @"Right visual scaling not applied or accumulated");
                 HGCheck(CGAffineTransformIsIdentity(item.transform), @"Scaling changed the hit-test view transform");
                 HGCheck(closeTo(item.bounds.size.width, 46) && closeTo(item.bounds.size.height, 62), @"Scaling resized native hit bounds");
@@ -366,13 +402,15 @@ static void HGWriteProgress(NSInteger phase) {
             [self checkTabHeight:54]; HGWritePreference(@"right.comment", @NO);
         } else if (self.phase == 9) {
             HGCheck(self.fixture.right.items[1].hidden, @"Right visibility switch did not hide comment");
-            HGCheck(closeTo(self.fixture.right.items[0].frame.origin.y, 284 - 62 - 2 * MAX(44, 62 * HGNumber(@"right.scale") + HGNumber(@"right.gap"))), @"Visible right items did not compact");
+            HGCheck(closeTo(HGVisualY(self.fixture.right.items[0]), 284 - (3 * 62 * HGNumber(@"right.scale") + 2 * HGNumber(@"right.gap")) + 31 * HGNumber(@"right.scale")), @"Visible right items did not compact");
             HGWritePreference(@"enabled", @NO);
         } else {
             HGCheck(!self.fixture.bar.oldBlur.hidden && !self.fixture.bar.oldImage.hidden, @"Tab backgrounds did not restore");
             HGCheck(closeTo(self.fixture.bar.bounds.size.height, 84), @"Original tab frame did not restore");
             HGCheck(closeTo(self.fixture.collection.bounds.size.height, self.fixture.list.view.bounds.size.height - 90), @"Feed viewport did not restore");
             for (UIView *item in self.fixture.right.items) HGCheck(CATransform3DIsIdentity(item.layer.sublayerTransform), @"Right visual scale did not restore");
+            HGCheck(!HGFixtureBottomImage.hidden && !HGFixtureBottomBlur.hidden, @"Bottom materials failed to restore when disabled");
+            HGCheck([HGFixtureBottomParent.backgroundColor isEqual:UIColor.grayColor], @"Bottom parent color failed to restore");
             [self checkSettingsState:@"已关闭"];
             HGSteadyRightPasses = HGRightPasses; HGSteadyButtonPasses = HGButtonPasses;
             HGWritePreference(@"enabled", @YES);
@@ -386,6 +424,10 @@ static void HGWriteProgress(NSInteger phase) {
             HGCheck(HGSafetyReason().length > 0, @"Explicit retry deleted historical record");
             [self performSelector:@selector(finishAfterRecovery) withObject:nil afterDelay:0.3]; return;
         }
+        if (self.phase < 9) dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.08 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            // Host resets every item after normal layout callbacks, including the first cold appearance.
+            for (UIView *item in self.fixture.right.items) item.layer.sublayerTransform = CATransform3DIdentity;
+        });
         self.phase++;
         [self performSelector:@selector(runPhase) withObject:nil afterDelay:0.18];
     } @catch (NSException *exception) { HGFinish(exception.reason); }
@@ -402,5 +444,6 @@ static void HGRecordNativeMethods(void) {
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
+
 
 
