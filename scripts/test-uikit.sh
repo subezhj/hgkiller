@@ -45,6 +45,10 @@ for tick in $(seq 1 60); do
 done
 if [ ! -f "$RESULT" ]; then
   echo "UIKit regression app produced no result; possible main-thread layout loop or crash." >&2
+  cp "$SIM_DATA/Documents/hg-progress.json" build/uikit-progress.json 2>/dev/null || true
+  PID="$(pgrep -f '/HGUIKitRegression.app/HGUIKitRegression' | head -1 || true)"
+  if [ -n "$PID" ]; then /usr/bin/sample "$PID" 1 -file build/uikit-hang-sample.txt || true; fi
+  /usr/bin/log show --style compact --last 3m --predicate 'process == "HGUIKitRegression"' > build/uikit-app.log 2>&1 || true
   xcrun simctl terminate "$SIM_ID" com.phoenix.video || true
   exit 1
 fi

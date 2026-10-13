@@ -20,6 +20,17 @@ static void HGCheck(BOOL condition, NSString *message) {
 }
 static BOOL closeTo(CGFloat a, CGFloat b) { return fabs(a - b) < 0.3; }
 
+static BOOL rectClose(CGRect a, CGRect b) {
+    return fabs(a.origin.x - b.origin.x) < 0.01 && fabs(a.origin.y - b.origin.y) < 0.01 &&
+           fabs(a.size.width - b.size.width) < 0.01 && fabs(a.size.height - b.size.height) < 0.01;
+}
+static void HGWriteProgress(NSInteger phase) {
+    NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject
+                      stringByAppendingPathComponent:@"hg-progress.json"];
+    NSDictionary *info = @{@"phase": @(phase), @"buttons": @(HGButtonPasses), @"enabled": @(HGEnabled()),
+                           @"paused": @(HGSafetyPaused()), @"reason": HGSafetyReason()};
+    [[NSJSONSerialization dataWithJSONObject:info options:NSJSONWritingPrettyPrinted error:nil] writeToFile:path atomically:YES];
+}
 @interface SSRootViewController : UIViewController @end
 @implementation SSRootViewController @end
 @interface SSVideoSeriesFeedViewController : UIViewController @end
@@ -71,7 +82,7 @@ static BOOL closeTo(CGFloat a, CGFloat b) { return fabs(a - b) < 0.3; }
     HGButtonPasses++;
     CGRect native = CGRectMake(49.6667, 13.6667, 32, 22.6667);
     // Adversarial host: reject plugin geometry writes and request another layout until native constraints match.
-    if (!CGRectEqualToRect(self.caption.frame, native) || !closeTo(self.bounds.size.width, 131.3333)) [self setNeedsLayout];
+    if (!rectClose(self.caption.frame, native) || !closeTo(self.bounds.size.width, 131.3333)) [self setNeedsLayout];
     self.caption.frame = native;
 }
 @end
@@ -218,6 +229,7 @@ static BOOL closeTo(CGFloat a, CGFloat b) { return fabs(a - b) < 0.3; }
     fixture.bar = [[SSTabBar alloc] initWithFrame:CGRectMake(0, 790, 402, 84)];
     [fixture.view addSubview:fixture.bar];
     for (SSTabBarTextButton *button in fixture.bar.buttons) [button addTarget:fixture action:@selector(tapped:) forControlEvents:UIControlEventTouchUpInside];
+    HGWriteProgress(-1);
     [self.window makeKeyAndVisible];
     [NSUserDefaults.standardUserDefaults setObject:@"SSTabBarTextButton layoutSubviews：历史测试记录" forKey:[HGPreferencePrefix stringByAppendingString:@"safety.lastReason"]];
     HGResetPreferences();
@@ -233,7 +245,7 @@ static BOOL closeTo(CGFloat a, CGFloat b) { return fabs(a - b) < 0.3; }
         SSTabBarTextButton *button = bar.buttons[index];
         HGRect slot = HGTabButtonRect(bar.bounds.size.width, height, index, 3);
         HGCheck(closeTo(button.frame.origin.x, index * 135.3333) && closeTo(button.bounds.size.width, 131.3333), @"Plugin changed native button frame");
-        HGCheck(CGRectEqualToRect(button.caption.frame, CGRectMake(49.6667, 13.6667, 32, 22.6667)), @"Plugin changed constrained caption frame");
+        HGCheck(rectClose(button.caption.frame, CGRectMake(49.6667, 13.6667, 32, 22.6667)), @"Plugin changed constrained caption frame");
         CATransform3D t = button.layer.sublayerTransform;
         CGPoint visual = [bar convertPoint:CGPointMake(button.caption.center.x + t.m41, button.caption.center.y + t.m42) fromView:button];
         HGCheck(closeTo(visual.x, slot.x + slot.width / 2) && closeTo(visual.y, height / 2), @"Tab pixels not centered");
@@ -248,7 +260,8 @@ static BOOL closeTo(CGFloat a, CGFloat b) { return fabs(a - b) < 0.3; }
     HGCheck(HGButtonPasses < 120, @"Tab constraint layouts did not converge");
 }
 - (UITableViewController *)makeSettings {
-    return [[NSClassFromString(@"HGSettingsController") alloc] initWithStyle:UITableViewStyleInsetGrouped];
+    UITableViewController *settings = [NSClassFromString(@"HGSettingsController") alloc];
+    return [settings initWithStyle:UITableViewStyleInsetGrouped];
 }
 - (void)checkSettingsState:(NSString *)expected {
     UITableViewController *settings = [self makeSettings];
@@ -277,6 +290,7 @@ static BOOL closeTo(CGFloat a, CGFloat b) { return fabs(a - b) < 0.3; }
     } @catch (NSException *exception) { HGFinish(exception.reason); }
 }
 - (void)runPhase {
+    HGWriteProgress(self.phase);
     @try {
         NSArray *scales = @[@0.55, @0.80, @1.0, @0.55, @0.80];
         if (self.phase == 0) {
