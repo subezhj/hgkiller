@@ -10,7 +10,8 @@ static NSString *HGCaptionRole(UIView *view) {
         if (HGIsClass(node, @"FQVTagListView") || HGIsClass(node, @"SSShortVideoHotCommentView")) return nil;
         if (HGIsClass(node, @"SSShortVideoOutterSeriesLeftContainerView") || HGIsClass(node, @"SSShortVideoSingleSeriesInfoLeftContainerView")) {
             CGRect rect = [view convertRect:view.bounds toView:node];
-            return rect.origin.y >= 50 ? @"caption.descriptionScale" : @"caption.titleScale";
+            BOOL description = HGIsClass(view, @"YYLabel") || rect.origin.y >= 50 || ([view isKindOfClass:UILabel.class] && [((UILabel *)view).text isEqualToString:@"展开"]);
+            return description ? @"caption.descriptionScale" : @"caption.titleScale";
         }
     }
     return nil;
@@ -46,3 +47,4 @@ void HGInstallCaption(void) {
         };
     });
 }
+

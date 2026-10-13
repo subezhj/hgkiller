@@ -142,6 +142,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         case 1: return @"关闭某项后自动收紧排列；大小 55%–100%，间距 0–24 pt。首次显示与后续布局统一应用。";
         case 2: return @"调整整块灰色底栏高度，包含底部安全区。只调模糊背景的可见高度，包含安全区。原生底栏占位不变，缩小后上方显示黑色，不扩展视频、不移动文案。";
         case 3: return @"调整首页顶部分类与搜索文字，保留原来的入口。";
+        case 4: return @"剧名与集数、简介、展开分别调整为原字号的 55%–100%。默认原字号，不修改文案容器位置。";
         default: return @"hgkiller 0.1.14 · 红果短剧 7.3.9 适配";
     }
 }
@@ -268,6 +269,7 @@ void HGInstallSettings(void) {
         };
     });
 }
+
 
 
 
