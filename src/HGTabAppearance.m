@@ -1,6 +1,7 @@
 #import "HGCore.h"
 static char HGAppearanceKey, HGOpacityKey, HGAppearanceCaptionKey, HGRowColorKey;
 @interface HGAppearance : NSObject
+@property(nonatomic, strong) UIColor *hostBackground;
 @property(nonatomic, strong) UIView *black;
 @property(nonatomic, strong) UIVisualEffectView *blur;
 @end
@@ -42,7 +43,7 @@ static void HGAppearanceLayout(UIView *bar) {
     HGAppearance *state = objc_getAssociatedObject(bar, &HGAppearanceKey);
     BOOL active = HGAppearanceActive(bar);
     if (!state && !active) return;
-    if (!state) { state = [HGAppearance new]; objc_setAssociatedObject(bar, &HGAppearanceKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
+    if (!state) { state = [HGAppearance new]; state.hostBackground = bar.backgroundColor; objc_setAssociatedObject(bar, &HGAppearanceKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
     if (active && !state.blur) {
         state.black = [[UIView alloc] initWithFrame:bar.bounds]; state.black.backgroundColor = UIColor.blackColor;
         state.black.userInteractionEnabled = NO; state.black.accessibilityElementsHidden = YES;
@@ -78,10 +79,13 @@ static void HGAppearanceLayout(UIView *bar) {
     if (active) {
         CGFloat h = MIN(bar.bounds.size.height, HGNumber(@"tab.appearance.height"));
         CGRect rect = CGRectMake(0, bar.bounds.size.height - h, bar.bounds.size.width, h);
-        if (!CGRectEqualToRect(state.black.frame, bar.bounds)) state.black.frame = bar.bounds;
+        CGRect empty = CGRectMake(0, 0, bar.bounds.size.width, bar.bounds.size.height - h);
+        if (!CGRectEqualToRect(state.black.frame, empty)) state.black.frame = empty;
+        if (bar.layer.backgroundColor) bar.layer.backgroundColor = nil;
         if (!CGRectEqualToRect(state.blur.frame, rect)) state.blur.frame = rect;
     } else {
         [state.black removeFromSuperview]; [state.blur removeFromSuperview]; state.black = nil; state.blur = nil;
+        bar.layer.backgroundColor = state.hostBackground.CGColor;
     }
     [CATransaction commit];
     for (UIView *child in bar.subviews) {
@@ -96,4 +100,5 @@ void HGInstallTabAppearance(void) {
         return ^(UIView *bar) { ((void (*)(id, SEL))original)(bar, moved); if (bar.window) { HGAppearanceLayout(bar); HGRefreshViews(); } };
     });
 }
+
 
