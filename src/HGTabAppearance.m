@@ -3,7 +3,6 @@ static char HGAppearanceKey, HGOpacityKey, HGAppearanceCaptionKey, HGRowColorKey
 @interface HGAppearance : NSObject
 @property(nonatomic, strong) UIColor *hostBackground;
 @property(nonatomic) BOOL hostClips;
-@property(nonatomic, strong) UIView *black;
 @property(nonatomic, strong) UIVisualEffectView *blur;
 @end
 @implementation HGAppearance @end
@@ -11,7 +10,6 @@ static char HGAppearanceKey, HGOpacityKey, HGAppearanceCaptionKey, HGRowColorKey
 @property(nonatomic) CATransform3D host;
 @end
 @implementation HGAppearanceCaption @end
-void HGReflowTabAllocation(UIView *bar);
 static UIView *HGAppearanceBar(UIView *view) {
     for (UIView *node = view; node; node = node.superview) if (HGIsClass(node, @"SSTabBar")) return node;
     return nil;
@@ -31,7 +29,7 @@ void HGTabAppearanceCaption(UIView *button) {
     if (!state) { state = [HGAppearanceCaption new]; state.host = button.layer.sublayerTransform; objc_setAssociatedObject(button, &HGAppearanceCaptionKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
     CATransform3D target = state.host;
     if (active) {
-        CGFloat h = MIN(bar.bounds.size.height, HGNumber(@"tab.appearance.height"));
+        CGFloat h = HGBool(@"tab.layout.enabled") ? MIN(bar.bounds.size.height, HGNumber(@"tab.appearance.height")) : bar.bounds.size.height;
         CGFloat safe = MIN(bar.window.safeAreaInsets.bottom, h);
         CGFloat center = bar.bounds.size.height - h + (h - safe) / 2;
         for (UIView *child in button.subviews) if (HGCaptionChild(child)) {
@@ -42,7 +40,6 @@ void HGTabAppearanceCaption(UIView *button) {
     HGApply(^{ if (!CATransform3DEqualToTransform(button.layer.sublayerTransform, target)) button.layer.sublayerTransform = target; });
 }
 static void HGAppearanceLayout(UIView *bar) {
-    HGReflowTabAllocation(bar);
     HGAppearance *state = objc_getAssociatedObject(bar, &HGAppearanceKey);
     BOOL active = HGAppearanceActive(bar);
     BOOL allocation = HGEnabled() && HGBool(@"tab.layout.enabled");
@@ -50,16 +47,14 @@ static void HGAppearanceLayout(UIView *bar) {
     if (!state) { state = [HGAppearance new]; state.hostBackground = bar.backgroundColor; state.hostClips = bar.clipsToBounds; objc_setAssociatedObject(bar, &HGAppearanceKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
     if (bar.clipsToBounds != (allocation ? YES : state.hostClips)) bar.clipsToBounds = allocation ? YES : state.hostClips;
     if (active && !state.blur) {
-        state.black = [[UIView alloc] initWithFrame:bar.bounds]; state.black.backgroundColor = UIColor.blackColor;
-        state.black.userInteractionEnabled = NO; state.black.accessibilityElementsHidden = YES;
         state.blur = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialDark]];
         state.blur.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
         state.blur.userInteractionEnabled = NO; state.blur.accessibilityElementsHidden = YES; state.blur.tag = 0x48474A;
-        [bar insertSubview:state.black atIndex:0]; [bar insertSubview:state.blur atIndex:1];
+        [bar insertSubview:state.blur atIndex:0];
     }
     [CATransaction begin]; [CATransaction setDisableActions:YES];
     for (UIView *child in bar.subviews.copy) {
-        if (child == state.black || child == state.blur) continue;
+        if (child == state.blur) continue;
         BOOL row = NO;
         for (UIView *button in child.subviews) if (HGIsClass(button, @"SSTabBarTextButton")) { row = YES; break; }
         if (row) {
@@ -82,14 +77,12 @@ static void HGAppearanceLayout(UIView *bar) {
         }
     }
     if (active) {
-        CGFloat h = MIN(bar.bounds.size.height, HGNumber(@"tab.appearance.height"));
+        CGFloat h = HGBool(@"tab.layout.enabled") ? MIN(bar.bounds.size.height, HGNumber(@"tab.appearance.height")) : bar.bounds.size.height;
         CGRect rect = CGRectMake(0, bar.bounds.size.height - h, bar.bounds.size.width, h);
-        CGRect empty = CGRectMake(0, 0, bar.bounds.size.width, bar.bounds.size.height - h);
-        if (!CGRectEqualToRect(state.black.frame, empty)) state.black.frame = empty;
         if (bar.layer.backgroundColor) bar.layer.backgroundColor = nil;
         if (!CGRectEqualToRect(state.blur.frame, rect)) state.blur.frame = rect;
     } else {
-        [state.black removeFromSuperview]; [state.blur removeFromSuperview]; state.black = nil; state.blur = nil;
+        [state.blur removeFromSuperview]; state.blur = nil;
         bar.layer.backgroundColor = state.hostBackground.CGColor;
     }
     [CATransaction commit];

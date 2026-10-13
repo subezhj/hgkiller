@@ -44,6 +44,8 @@ static void HGReloadPreferences(void) {
     // Do not honor old saved fullscreen values in this hotfix; the corresponding hooks are absent.
     values[@"video.extend"] = @NO;
     values[@"video.fillPortrait"] = @NO;
+    // Host app freeze reported during real viewport resizing. Quarantine all allocation hooks.
+    values[@"tab.layout.enabled"] = @NO;
     HGPreferences = [values copy];
 }
 static char HGLayoutBurstKey;
