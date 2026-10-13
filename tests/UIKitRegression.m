@@ -5,6 +5,8 @@
 
 static NSUInteger HGBarPasses, HGRightPasses, HGChecks, HGSteadyRightPasses, HGButtonPasses, HGSteadyButtonPasses;
 static BOOL HGDidTripSafety;
+static UIView *HGProjectedPlayer, *HGProjectedControls;
+static UILabel *HGProjectedTitle;
 static IMP HGFeedFrameBeforeLoad, HGPlayerFrameBeforeLoad, HGItemBeforeLoad, HGSizeBeforeLoad, HGButtonFrameBeforeLoad;
 static void HGFinish(NSString *error) {
     NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject
@@ -44,6 +46,8 @@ static void HGWriteProgress(NSInteger phase) {
 @implementation FQVCollectionView @end
 @interface FQVShortVideoCell : UICollectionViewCell @end
 @implementation FQVShortVideoCell @end
+@interface FQVShortVideoVPlayerOutterMultiSeriesControlView : UIView @end
+@implementation FQVShortVideoVPlayerOutterMultiSeriesControlView @end
 @interface FQVPlayer : UIView @end
 @implementation FQVPlayer @end
 
@@ -228,7 +232,17 @@ static UIView *HGFixtureDramaContainer;
 @implementation HGRegressionApp
 - (NSInteger)collectionView:(UICollectionView *)view numberOfItemsInSection:(NSInteger)section { return 3; }
 - (UICollectionViewCell *)collectionView:(UICollectionView *)view cellForItemAtIndexPath:(NSIndexPath *)path {
-    return [view dequeueReusableCellWithReuseIdentifier:@"fixture" forIndexPath:path];
+    UICollectionViewCell *cell = [view dequeueReusableCellWithReuseIdentifier:@"fixture" forIndexPath:path];
+    if (!cell.contentView.subviews.count) {
+        UIView *player = [[FQVPlayer alloc] initWithFrame:CGRectMake(0, 0, view.bounds.size.width, 784)];
+        player.autoresizingMask = UIViewAutoresizingFlexibleWidth; [cell.contentView addSubview:player];
+        UIView *controls = [[FQVShortVideoVPlayerOutterMultiSeriesControlView alloc] initWithFrame:player.frame];
+        controls.autoresizingMask = UIViewAutoresizingFlexibleWidth; [cell.contentView addSubview:controls];
+        UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 645, 240, 22)];
+        title.text = @"别叫姐姐"; [controls addSubview:title];
+        if (path.item == 0) { HGProjectedPlayer = player; HGProjectedControls = controls; HGProjectedTitle = title; }
+    }
+    return cell;
 }
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
     HGResetPreferences(); HGWritePreference(@"tab.backgroundHeight", @66);
@@ -283,18 +297,19 @@ static UIView *HGFixtureDramaContainer;
 }
 - (void)checkTabHeight:(CGFloat)height {
     SSTabBar *bar = self.fixture.bar;
+    [self.fixture.collection layoutSubviews];
     CGFloat safe = MIN(self.window.safeAreaInsets.bottom, 84);
     CGFloat expected = MIN(84 - safe, height) + safe;
     HGCheck(closeTo(bar.bounds.size.height, expected), @"Native tab configured height not applied");
     HGCheck(closeTo(bar.frame.origin.x, 0) && closeTo(bar.bounds.size.width, self.window.bounds.size.width), @"Native tab still floating or inset");
-    HGCheck(closeTo(bar.frame.origin.y, 784), @"Gap remained between episode entry and native tab");
+    HGCheck(closeTo(CGRectGetMaxY(bar.frame), self.window.bounds.size.height), @"Tab no longer bottom aligned");
     HGCheck(CGRectGetMaxY(bar.frame) <= self.window.bounds.size.height + 0.1, @"Tab escaped bottom reserved area");
     HGCheck(bar.frame.origin.y >= 784 - 0.1, @"Tab invaded video/caption reserved region");
     HGCheck(!bar.oldBlur.hidden && !bar.oldImage.hidden, @"Native background was removed");
     NSUInteger mats = 0;
     for (CALayer *layer in bar.layer.superlayer.sublayers) if ([layer.name isEqualToString:@"HGK.nativeTabUnderlay"]) {
         mats++;
-        HGCheck(rectClose(layer.frame, CGRectMake(0, 784, self.window.bounds.size.width, self.window.bounds.size.height - 784)), @"Black underlay escaped native reserved strip");
+        HGCheck(rectClose(layer.frame, bar.frame), @"Black underlay overlapped expanded video");
         HGCheck(CGColorEqualToColor(layer.backgroundColor, UIColor.blackColor.CGColor), @"Exposed strip remained gray");
     }
     for (CALayer *layer in bar.layer.superlayer.sublayers) if ([layer.name isEqualToString:@"HGK.nativeTabUnderlay"]) {
@@ -325,6 +340,12 @@ static UIView *HGFixtureDramaContainer;
     HGCheck(rectClose(HGFixtureDramaTitle.frame, CGRectMake(0, 30, 240, 22)) && closeTo(HGFixtureDramaTitle.font.pointSize, 18), @"Drama title position or font was changed");
     HGCheck(rectClose(HGFixtureBottomParent.frame, CGRectMake(0, 740, 402, 44)), @"Native episode entry moved with tab height");
     HGCheck(closeTo(self.fixture.collection.bounds.size.height, self.fixture.list.view.bounds.size.height - 90), @"Tab height changed video viewport");
+    HGCheck(HGProjectedPlayer && HGProjectedTitle, @"Projection fixture missing");
+    CGPoint videoBottom = [HGProjectedPlayer.layer convertPoint:CGPointMake(HGProjectedPlayer.bounds.size.width / 2, 784) toLayer:self.window.layer];
+    HGCheck(closeTo(videoBottom.y, bar.frame.origin.y), @"Rendered video did not fill tab gap");
+    CGPoint titleCenter = [HGProjectedTitle.layer convertPoint:CGPointMake(120, 11) toLayer:self.window.layer];
+    HGCheck(closeTo(titleCenter.x, 136) && closeTo(titleCenter.y, 656), @"Video projection moved drama text pixels");
+    HGCheck(closeTo(HGProjectedPlayer.bounds.size.height, 784), @"Player geometry changed during projection");
     HGCheck(HGEnabled() && !HGSafetyPaused(), @"Tab layout triggered protection before deliberate stress");
     HGCheck(HGButtonPasses < 120, @"Tab constraint layouts did not converge");
 }
@@ -364,7 +385,7 @@ static UIView *HGFixtureDramaContainer;
         NSArray *scales = @[@0.55, @0.80, @1.0, @0.55, @0.80];
         if (self.phase == 0) {
             HGCheck(closeTo(self.fixture.bar.bounds.size.height, 66), @"Cold launch ignored saved gray tab height");
-            HGCheck(closeTo(self.fixture.bar.frame.origin.y, 784), @"Cold launch needed navigation to align tab");
+            HGCheck(closeTo(CGRectGetMaxY(self.fixture.bar.frame), self.window.bounds.size.height), @"Cold launch needed navigation to align tab");
             HGResetPreferences(); [self.fixture.bar layoutSubviews];
             for (UIView *item in self.fixture.right.items) HGCheck(closeTo(item.transform.a, 0.8), @"Cold launch scaled only one interaction");
             UIView *header = [[SSVideoSeriesFeedHeaderView alloc] initWithFrame:CGRectMake(0, 62, 300, 44)];
@@ -478,6 +499,9 @@ static UIView *HGFixtureDramaContainer;
             HGCheck([HGFixtureBottomParent.backgroundColor isEqual:UIColor.grayColor], @"Bottom parent color failed to restore");
             for (CALayer *layer in self.fixture.bar.layer.superlayer.sublayers)
                 HGCheck(![layer.name isEqualToString:@"HGK.nativeTabUnderlay"], @"Underlay failed to restore on disable");
+            HGCheck(CATransform3DIsIdentity(self.fixture.collection.layer.sublayerTransform), @"Video projection did not restore");
+            HGCheck(self.fixture.collection.layer.mask == nil, @"Projection mask did not restore");
+            HGCheck(CATransform3DIsIdentity(HGProjectedControls.layer.sublayerTransform), @"Metadata compensation did not restore");
             [self checkSettingsState:@"已关闭"];
             HGSteadyRightPasses = HGRightPasses; HGSteadyButtonPasses = HGButtonPasses;
             HGWritePreference(@"enabled", @YES);
@@ -511,6 +535,7 @@ static void HGRecordNativeMethods(void) {
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
+
 
 
 
