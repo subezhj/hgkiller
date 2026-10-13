@@ -30,13 +30,28 @@ static CGFloat HGTabButtonHeight(UIView *bar, CGRect native) {
     CGFloat total = MIN(native.size.height, MAX(safe + 28, HGNumber(@"tab.backgroundHeight")));
     return MIN(available, MAX(0, total - safe));
 }
+static void HGFindEntryEdge(UIView *root, UIView *bar, CGFloat nativeTop, CGFloat *edge) {
+    if (root.hidden || root.alpha < 0.01) return;
+    if (HGIsClass(root, @"SSShortVideoBottomDistributionView")) {
+        CGRect rect = [root convertRect:root.bounds toView:bar.superview];
+        CGFloat bottom = CGRectGetMaxY(rect);
+        if (rect.size.height > 0 && bottom <= nativeTop + 0.1 && bottom >= nativeTop - 64) *edge = MAX(*edge, bottom);
+        return;
+    }
+    for (UIView *child in root.subviews) HGFindEntryEdge(child, bar, nativeTop, edge);
+}
+static CGFloat HGTabTop(UIView *bar, CGRect native) {
+    CGFloat edge = -CGFLOAT_MAX;
+    if (bar.superview) HGFindEntryEdge(bar.superview, bar, CGRectGetMinY(native), &edge);
+    return edge == -CGFLOAT_MAX ? CGRectGetMinY(native) : edge;
+}
 static CGRect HGTabFrame(UIView *bar, CGRect native) {
     if (!HGTabActive(bar) || native.size.height <= 0) return native;
     CGFloat safe = MIN(bar.window.safeAreaInsets.bottom, native.size.height);
     CGFloat height = HGTabButtonHeight(bar, native) + safe;
     // Stay entirely inside the native reserved strip; never touch feed safe areas or viewport.
     CGRect target = native;
-    target.origin.y = CGRectGetMaxY(native) - height;
+    target.origin.y = MIN(HGTabTop(bar, native), CGRectGetMaxY(native) - height);
     target.size.height = height;
     return target;
 }
@@ -96,7 +111,9 @@ static void HGLayoutTab(UIView *bar) {
         }
         state.underlay.hidden = bar.hidden || bar.alpha < 0.01;
         CGRect reserved = HGHostFrame(bar);
-        if (!CGRectEqualToRect(state.underlay.frame, reserved)) state.underlay.frame = reserved;
+        CGRect backing = reserved; CGFloat top = HGTabTop(bar, reserved);
+        backing.origin.y = top; backing.size.height = CGRectGetMaxY(reserved) - top;
+        if (!CGRectEqualToRect(state.underlay.frame, backing)) state.underlay.frame = backing;
         [CATransaction commit];
         HGSetFrame(bar, HGTabFrame(bar, reserved));
     } else {
@@ -128,6 +145,16 @@ static void HGSyncUnderlay(UIView *bar) {
     if (state.underlay && state.underlay.hidden != hidden) state.underlay.hidden = hidden;
 }
 void HGInstallTabBar(void) {
+    SEL moved = @selector(didMoveToWindow);
+    HGInstall(NSClassFromString(@"SSTabBar"), moved, ^id(IMP original) {
+        return ^(UIView *bar) {
+            ((void (*)(id, SEL))original)(bar, moved);
+            if (bar.window && !HGIsApplying()) { HGLayoutTab(bar); HGRefreshViews(); }
+        };
+    });
+    HGInstall(NSClassFromString(@"SSShortVideoBottomDistributionView"), moved, ^id(IMP original) {
+        return ^(UIView *view) { ((void (*)(id, SEL))original)(view, moved); if (view.window) HGRefreshViews(); };
+    });
     SEL hiddenSelector = @selector(setHidden:);
     HGInstall(NSClassFromString(@"SSTabBar"), hiddenSelector, ^id(IMP original) {
         return ^(UIView *bar, BOOL hidden) { ((void (*)(id, SEL, BOOL))original)(bar, hiddenSelector, hidden); HGSyncUnderlay(bar); };
@@ -144,5 +171,6 @@ void HGInstallTabBar(void) {
     });
     // No CYLTabBar, distribution, caption container, player or video layout hooks; native hit-testing stays intact.
 }
+
 
 

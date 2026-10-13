@@ -231,6 +231,7 @@ static UIView *HGFixtureDramaContainer;
     return [view dequeueReusableCellWithReuseIdentifier:@"fixture" forIndexPath:path];
 }
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
+    HGResetPreferences(); HGWritePreference(@"tab.backgroundHeight", @66);
     self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
     SSRootViewController *root = [SSRootViewController new];
     self.window.rootViewController = root;
@@ -277,7 +278,6 @@ static UIView *HGFixtureDramaContainer;
     HGWriteProgress(-1);
     [self.window makeKeyAndVisible];
     [NSUserDefaults.standardUserDefaults setObject:@"SSTabBarTextButton layoutSubviews：历史测试记录" forKey:[HGPreferencePrefix stringByAppendingString:@"safety.lastReason"]];
-    HGResetPreferences();
     [self performSelector:@selector(runPhase) withObject:nil afterDelay:0.6];
     return YES;
 }
@@ -287,13 +287,14 @@ static UIView *HGFixtureDramaContainer;
     CGFloat expected = MIN(84 - safe, height) + safe;
     HGCheck(closeTo(bar.bounds.size.height, expected), @"Native tab configured height not applied");
     HGCheck(closeTo(bar.frame.origin.x, 0) && closeTo(bar.bounds.size.width, self.window.bounds.size.width), @"Native tab still floating or inset");
-    HGCheck(closeTo(CGRectGetMaxY(bar.frame), self.window.bounds.size.height), @"Native tab not bottom aligned");
-    HGCheck(bar.frame.origin.y >= self.window.bounds.size.height - 84 - 0.1, @"Tab invaded video/caption reserved region");
+    HGCheck(closeTo(bar.frame.origin.y, 784), @"Gap remained between episode entry and native tab");
+    HGCheck(CGRectGetMaxY(bar.frame) <= self.window.bounds.size.height + 0.1, @"Tab escaped bottom reserved area");
+    HGCheck(bar.frame.origin.y >= 784 - 0.1, @"Tab invaded video/caption reserved region");
     HGCheck(!bar.oldBlur.hidden && !bar.oldImage.hidden, @"Native background was removed");
     NSUInteger mats = 0;
     for (CALayer *layer in bar.layer.superlayer.sublayers) if ([layer.name isEqualToString:@"HGK.nativeTabUnderlay"]) {
         mats++;
-        HGCheck(rectClose(layer.frame, CGRectMake(0, self.window.bounds.size.height - 84, self.window.bounds.size.width, 84)), @"Black underlay escaped native reserved strip");
+        HGCheck(rectClose(layer.frame, CGRectMake(0, 784, self.window.bounds.size.width, self.window.bounds.size.height - 784)), @"Black underlay escaped native reserved strip");
         HGCheck(CGColorEqualToColor(layer.backgroundColor, UIColor.blackColor.CGColor), @"Exposed strip remained gray");
     }
     for (CALayer *layer in bar.layer.superlayer.sublayers) if ([layer.name isEqualToString:@"HGK.nativeTabUnderlay"]) {
@@ -362,6 +363,9 @@ static UIView *HGFixtureDramaContainer;
     @try {
         NSArray *scales = @[@0.55, @0.80, @1.0, @0.55, @0.80];
         if (self.phase == 0) {
+            HGCheck(closeTo(self.fixture.bar.bounds.size.height, 66), @"Cold launch ignored saved gray tab height");
+            HGCheck(closeTo(self.fixture.bar.frame.origin.y, 784), @"Cold launch needed navigation to align tab");
+            HGResetPreferences(); [self.fixture.bar layoutSubviews];
             for (UIView *item in self.fixture.right.items) HGCheck(closeTo(item.transform.a, 0.8), @"Cold launch scaled only one interaction");
             UIView *header = [[SSVideoSeriesFeedHeaderView alloc] initWithFrame:CGRectMake(0, 62, 300, 44)];
             [self.fixture.feed.view addSubview:header];
@@ -507,6 +511,7 @@ static void HGRecordNativeMethods(void) {
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
+
 
 
 

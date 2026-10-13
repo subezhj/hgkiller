@@ -4,6 +4,10 @@ static void HGStart(void) {
     HGInitializePreferences();
     HGInstallFeatures();
     HGInstallSettings();
+    HGRefreshViews();
+    static dispatch_once_t once; dispatch_once(&once, ^{
+        [NSNotificationCenter.defaultCenter addObserverForName:UIApplicationDidBecomeActiveNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) { HGRefreshViews(); }];
+    });
 }
 __attribute__((constructor))
 static void HGLoad(void) {
@@ -17,8 +21,10 @@ static void HGLoad(void) {
                                dispatch_get_main_queue(), ^{
                     HGInstallFeatures();
                     HGInstallSettings();
+                    HGRefreshViews();
                 });
             }
         });
     }
 }
+
