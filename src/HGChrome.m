@@ -79,9 +79,7 @@ static void HGApplyRightItem(UIView *item) {
     BOOL active = HGEnabled() && HGInVideoControls(item);
     BOOL hidden = HGRightHidden(item);
     if (item.hidden != hidden) HGApply(^{ item.hidden = hidden; });
-    if (state.scaled && !CATransform3DEqualToTransform(item.layer.sublayerTransform, state.appliedSublayers)) {
-        state.hostSublayers = item.layer.sublayerTransform;
-    }
+    // Keep the captured native baseline; a partial host reset may retain our translation.
     CATransform3D target = state.hostSublayers;
     if (active) {
         CGPoint center = HGRightVisualCenter(item);
@@ -230,6 +228,7 @@ void HGInstallChrome(void) {
     HGHookLayout(@"SSVideoSeriesFeedHeaderView", ^(UIView *view) { HGScaleHeaderFonts(view); });
     HGHookLayout(@"FQRJXCategoryCollectionView", ^(UIView *view) { if (HGInHeader(view)) HGScaleHeaderFonts(view); });
 }
+
 
 
 
