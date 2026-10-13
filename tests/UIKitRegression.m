@@ -307,7 +307,7 @@ static UIView *HGFixtureDramaContainer;
     HGCheck(rectClose(bar.frame, CGRectMake(0, self.window.bounds.size.height - 84, self.window.bounds.size.width, 84)), @"Legacy height setting still changes native tab frame");
     HGCheck(!bar.oldBlur.hidden && !bar.oldImage.hidden, @"Native background changed");
     HGCheck(method_getImplementation(class_getInstanceMethod(SSTabBar.class, @selector(setFrame:))) == HGTabFrameOriginal, @"Tab frame hook remains installed");
-    HGCheck(method_getImplementation(class_getInstanceMethod(SSTabBar.class, @selector(layoutSubviews))) == HGTabLayoutOriginal, @"Tab layout hook remains installed");
+    HGCheck(!HGBool(@"tab.appearance.enabled"), @"Appearance should be disabled during native baseline checks");
     for (CALayer *layer in bar.layer.superlayer.sublayers) HGCheck(![layer.name isEqualToString:@"HGK.nativeTabUnderlay"], @"Black tab underlay still installed");
     HGCheck(bar.subviews.count == 3, @"Plugin inserted a floating blur background");
     HGCheck(closeTo(bar.row.bounds.size.width, 402), @"Plugin changed native row bounds");
@@ -486,7 +486,19 @@ static UIView *HGFixtureDramaContainer;
             HGCheck(closeTo(first.label.font.pointSize, 14), @"Tab host resets defeated font size");
             HGWritePreference(@"tab.textScale", @1); [first layoutSubviews];
             HGCheck(closeTo(first.label.font.pointSize, 20), @"Tab text size did not restore");
-            [bar layoutSubviews]; [self checkTabHeight:50];
+            HGWritePreference(@"tab.appearance.enabled", @YES); HGWritePreference(@"tab.appearance.height", @62);
+            [bar layoutSubviews];
+            UIVisualEffectView *appearance = (id)[bar viewWithTag:0x48474A];
+            HGCheck(appearance && [appearance.effect isKindOfClass:UIBlurEffect.class], @"Optional bottom blur missing");
+            HGCheck(closeTo(appearance.frame.size.height, 62) && closeTo(appearance.frame.origin.y, 22), @"Visible background height setting ignored");
+            HGCheck(closeTo(bar.bounds.size.height, 84), @"Appearance changed native tab allocation");
+            HGCheck(closeTo(bar.oldBlur.layer.opacity, 0) && closeTo(bar.oldImage.layer.opacity, 0), @"Original paint remained over custom blur");
+            HGCheck([first pointInside:CGPointMake(65, 36) withEvent:nil], @"Blur caption moved outside native click area");
+            HGWritePreference(@"tab.appearance.height", @84); [bar layoutSubviews];
+            HGCheck(closeTo(appearance.frame.size.height, 84), @"Appearance height did not update");
+            HGWritePreference(@"tab.appearance.enabled", @NO); [bar layoutSubviews];
+            HGCheck(![bar viewWithTag:0x48474A] && closeTo(bar.oldBlur.layer.opacity, 1) && closeTo(bar.oldImage.layer.opacity, 1), @"Native paint failed to restore");
+            [self checkTabHeight:50];
             HGWritePreference(@"right.scale", scales[0]);
         } else if (self.phase <= scales.count) {
             double expected = [scales[self.phase - 1] doubleValue];
@@ -571,6 +583,7 @@ static void HGRecordNativeMethods(void) {
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
+
 
 
 

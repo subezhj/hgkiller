@@ -1,5 +1,5 @@
 #import "HGCore.h"
-static char HGAppearanceKey, HGOpacityKey, HGAppearanceCaptionKey;
+static char HGAppearanceKey, HGOpacityKey, HGAppearanceCaptionKey, HGRowColorKey;
 @interface HGAppearance : NSObject
 @property(nonatomic, strong) UIView *black;
 @property(nonatomic, strong) UIVisualEffectView *blur;
@@ -54,6 +54,18 @@ static void HGAppearanceLayout(UIView *bar) {
     [CATransaction begin]; [CATransaction setDisableActions:YES];
     for (UIView *child in bar.subviews.copy) {
         if (child == state.black || child == state.blur) continue;
+        BOOL row = NO;
+        for (UIView *button in child.subviews) if (HGIsClass(button, @"SSTabBarTextButton")) { row = YES; break; }
+        if (row) {
+            id color = objc_getAssociatedObject(child, &HGRowColorKey);
+            if (active) {
+                if (!color) objc_setAssociatedObject(child, &HGRowColorKey, child.layer.backgroundColor ? [UIColor colorWithCGColor:child.layer.backgroundColor] : NSNull.null, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+                if (child.layer.backgroundColor) child.layer.backgroundColor = nil;
+            } else if (color) {
+                child.layer.backgroundColor = [color isKindOfClass:UIColor.class] ? [(UIColor *)color CGColor] : nil;
+                objc_setAssociatedObject(child, &HGRowColorKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            }
+        }
         BOOL paint = [child isKindOfClass:UIVisualEffectView.class] || [child isKindOfClass:UIImageView.class];
         if (paint && child.bounds.size.width >= bar.bounds.size.width * 0.85) {
             NSNumber *opacity = objc_getAssociatedObject(child, &HGOpacityKey);
@@ -84,3 +96,4 @@ void HGInstallTabAppearance(void) {
         return ^(UIView *bar) { ((void (*)(id, SEL))original)(bar, moved); if (bar.window) { HGAppearanceLayout(bar); HGRefreshViews(); } };
     });
 }
+

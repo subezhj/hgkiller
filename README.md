@@ -4,7 +4,7 @@
 
 根据 FLEX 1791895069，剧名位于 SSShortVideoOutterSeriesLeftContainerView 的标题 UILabel，集数简介使用 YYLabel，展开文字为同容器中的 UILabel。新增播放页文案总开关和独立的剧名、集数简介/展开字号比例（55%–100%），默认原字号。涵盖首页与合集的对应左侧信息容器，保持原生 frame/bounds 与入口布局。
 
-底栏新方案仍需选择背景显示高度还是页面占位高度；两者影响不同。合集右侧位置修复已包含，底栏高度修改暂不自动恢复。
+用户选择只调整背景可见高度，保持原生页面占位。新增可选深色磨砂模糊背景和 62–84 pt 可见高度，默认关闭。只修改底栏内部显示，原生 frame/bounds、视频分页和文案布局保持不变；减少的背景部分显示黑色，不回收视频占位。合集右侧位置修复已包含。
 
 ## 0.1.13 合集播放右侧位置修复
 
@@ -202,6 +202,7 @@ iOS 编译通过仅证明源码可编译和动态库可生成；**未完成真�
 hgkiller 为针对红果类体系重新实现的工程，不依赖其抖音私有类。
 
 系统材质 API：[Apple UIGlassEffect](https://developer.apple.com/documentation/uikit/uiglasseffect)。
+
 
 
 
