@@ -2,6 +2,12 @@
 #import "HGGeometry.h"
 
 static char HGRightStateKey, HGFontStateKey;
+static BOOL HGInVideoControls(UIView *view) {
+    if (!view.window || view.window.windowLevel != UIWindowLevelNormal || view.window.bounds.size.width > view.window.bounds.size.height) return NO;
+    for (UIView *node = view; node; node = node.superview)
+        if (HGIsClass(node.nextResponder, @"FQVShortVideoListViewController")) return YES;
+    return HGIsFeedView(view);
+}
 static NSArray<NSString *> *HGRightClasses(void) {
     return @[@"SSShortVideoRightInteractionAvatarView", @"SSShortVideoRightInteractionCollectView",
              @"SSShortVideoRightInteractionCommentView", @"SSShortVideoRightInteractionLikeView",
@@ -47,30 +53,30 @@ static NSArray<UIView *> *HGRightItems(UIView *container) {
 }
 static BOOL HGRightHidden(UIView *view) {
     HGRightState *state = HGRightStateFor(view);
-    return state.hostHidden || (HGEnabled() && HGIsFeedView(view) && !HGBool(HGRightKey(view)));
+    return state.hostHidden || (HGEnabled() && HGInVideoControls(view) && !HGBool(HGRightKey(view)));
 }
 static CGRect HGRightTargetFrame(UIView *item, CGRect host) {
     UIView *container = item.superview;
-    if (!HGEnabled() || !HGIsFeedView(item) || !HGIsClass(container, @"SSShortVideoRightInteractionView")) return host;
+    if (!HGEnabled() || !HGInVideoControls(item) || !HGIsClass(container, @"SSShortVideoRightInteractionView")) return host;
     NSArray *items = HGRightItems(container);
-    CGFloat total = 0, gap = 12.0;
-    NSUInteger visible = 0;
+    CGFloat total = 0, gap = HGNumber(@"right.gap"), scale = HGNumber(@"right.scale");
+    NSUInteger visible = 0; UIView *last = nil;
     for (UIView *view in items) if (!HGRightHidden(view)) {
-        total += HGHostFrame(view).size.height;
-        visible++;
+        total += MAX(44.0, HGHostFrame(view).size.height * scale + gap);
+        visible++; last = view;
     }
-    total += gap * MAX(0, (NSInteger)visible - 1);
+    if (visible) total += HGHostFrame(last).size.height - MAX(44.0, HGHostFrame(last).size.height * scale + gap);
     CGFloat y = MAX(0.0, CGRectGetHeight(container.bounds) - total);
     for (UIView *view in items) {
         if (HGRightHidden(view)) continue;
         if (view == item) { host.origin.y = y; break; }
-        y += HGHostFrame(view).size.height + gap;
+        y += MAX(44.0, HGHostFrame(view).size.height * scale + gap);
     }
     return host;
 }
 static void HGApplyRightItem(UIView *item) {
     HGRightState *state = HGRightStateFor(item);
-    BOOL active = HGEnabled() && HGIsFeedView(item);
+    BOOL active = HGEnabled() && HGInVideoControls(item);
     BOOL hidden = HGRightHidden(item);
     if (item.hidden != hidden) HGApply(^{ item.hidden = hidden; });
     if (state.scaled && !CATransform3DEqualToTransform(item.layer.sublayerTransform, state.appliedSublayers)) {
@@ -95,7 +101,7 @@ static void HGScaleHeaderFonts(UIView *root) {
     if ([root isKindOfClass:UILabel.class]) {
         UILabel *label = (id)root;
         HGFontState *state = objc_getAssociatedObject(label, &HGFontStateKey);
-        BOOL active = HGEnabled() && HGBool(@"top.enabled") && HGIsFeedView(root) && HGInHeader(root);
+        BOOL active = HGEnabled() && HGBool(@"top.enabled") && HGInHeader(root) && root.window != nil;
         if (!state && active) {
             state = [HGFontState new]; state.host = label.font;
             objc_setAssociatedObject(label, &HGFontStateKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -127,6 +133,39 @@ void HGInstallChrome(void) {
             };
         });
     }
+    SEL hitSelector = @selector(hitTest:withEvent:);
+    HGInstall(NSClassFromString(@"SSShortVideoRightInteractionView"), hitSelector, ^id(IMP original) {
+        return ^UIView *(UIView *container, CGPoint point, UIEvent *event) {
+            if (HGEnabled() && HGInVideoControls(container) && !container.hidden && container.alpha > 0.01 && container.userInteractionEnabled && [container pointInside:point withEvent:event]) {
+                UIView *nearest = nil; CGFloat distance = CGFLOAT_MAX;
+                for (UIView *item in HGRightItems(container)) if (!HGRightHidden(item) && item.userInteractionEnabled && item.alpha > 0.01) {
+                    CGFloat d = fabs(point.y - CGRectGetMidY(item.frame));
+                    if (d < distance) { nearest = item; distance = d; }
+                }
+                if (nearest && distance <= CGRectGetHeight(nearest.bounds) / 2)
+                    return [nearest hitTest:[nearest convertPoint:point fromView:container] withEvent:event];
+            }
+            return ((UIView *(*)(id, SEL, CGPoint, UIEvent *))original)(container, hitSelector, point, event);
+        };
+    });
+    SEL fontSelector = @selector(setFont:);
+    HGInstall(UILabel.class, fontSelector, ^id(IMP original) {
+        return ^(UILabel *label, UIFont *font) {
+            UIFont *output = font;
+            if (!HGIsApplying() && font && HGInHeader(label)) {
+                HGFontState *state = objc_getAssociatedObject(label, &HGFontStateKey);
+                if (!state) { state = [HGFontState new]; objc_setAssociatedObject(label, &HGFontStateKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
+                if (![font isEqual:state.applied]) state.host = font;
+                BOOL active = HGEnabled() && HGBool(@"top.enabled");
+                output = active ? [state.host fontWithSize:MAX(10, state.host.pointSize * HGNumber(@"top.scale"))] : state.host;
+                state.applied = active ? output : nil;
+            }
+            ((void (*)(id, SEL, UIFont *))original)(label, fontSelector, output);
+        };
+    });
+    HGHookLayout(@"SSHGBookStoreCategoryTitleCell", ^(UIView *view) { if (HGInHeader(view)) HGScaleHeaderFonts(view); });
     HGHookLayout(@"SSVideoSeriesFeedHeaderView", ^(UIView *view) { HGScaleHeaderFonts(view); });
     HGHookLayout(@"FQRJXCategoryCollectionView", ^(UIView *view) { if (HGInHeader(view)) HGScaleHeaderFonts(view); });
 }
+
+

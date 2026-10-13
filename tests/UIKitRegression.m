@@ -37,6 +37,8 @@ static void HGWriteProgress(NSInteger phase) {
 @implementation SSVideoSeriesFeedViewController @end
 @interface FQVShortVideoListViewController : UIViewController @end
 @implementation FQVShortVideoListViewController @end
+@interface SSVideoSeriesFeedHeaderView : UIView @end
+@implementation SSVideoSeriesFeedHeaderView @end
 @interface FQVCollectionView : UICollectionView @end
 @implementation FQVCollectionView @end
 @interface FQVShortVideoCell : UICollectionViewCell @end
@@ -294,6 +296,30 @@ static void HGWriteProgress(NSInteger phase) {
     @try {
         NSArray *scales = @[@0.55, @0.80, @1.0, @0.55, @0.80];
         if (self.phase == 0) {
+            UIView *header = [[SSVideoSeriesFeedHeaderView alloc] initWithFrame:CGRectMake(0, 62, 300, 44)];
+            [self.fixture.feed.view addSubview:header];
+            UILabel *title = [UILabel new]; [header addSubview:title];
+            for (NSUInteger repeat = 0; repeat < 10; repeat++) {
+                title.font = [UIFont systemFontOfSize:20];
+                HGCheck(closeTo(title.font.pointSize, 17), @"Host top font reset defeated scaling");
+            }
+            HGWritePreference(@"top.enabled", @NO); title.font = [UIFont systemFontOfSize:20];
+            HGCheck(closeTo(title.font.pointSize, 20), @"Top font failed to restore");
+            HGWritePreference(@"top.enabled", @YES); [header layoutSubviews];
+            HGCheck(closeTo(title.font.pointSize, 17), @"Top font retry accumulated scaling");
+            [header removeFromSuperview];
+            FQVShortVideoListViewController *detail = [FQVShortVideoListViewController new];
+            [self.window.rootViewController addChildViewController:detail];
+            [self.window.rootViewController.view addSubview:detail.view];
+            SSShortVideoRightInteractionView *detailRight = [[SSShortVideoRightInteractionView alloc] initWithFrame:CGRectMake(346, 481, 46, 284)];
+            [detail.view addSubview:detailRight]; [detailRight layoutSubviews];
+            for (UIView *item in detailRight.items) HGCheck(closeTo(item.layer.sublayerTransform.m11, 0.8), @"Standalone all-episodes scaling missing");
+            HGWritePreference(@"right.gap", @0); [detailRight layoutSubviews];
+            HGCheck(closeTo(detailRight.items[1].frame.origin.y - detailRight.items[0].frame.origin.y, 49.6), @"Right gap did not compact scaled items");
+            HGWritePreference(@"right.gap", @24); [detailRight layoutSubviews];
+            HGCheck(closeTo(detailRight.items[1].frame.origin.y - detailRight.items[0].frame.origin.y, 73.6), @"Right gap setting ineffective");
+            HGWritePreference(@"right.gap", @6);
+            [detail.view removeFromSuperview]; [detail removeFromParentViewController];
             [self checkTabHeight:54];
             [self checkSettingsState:@"正在运行"]; [self checkSliderMargins];
             HGCheck(method_getImplementation(class_getInstanceMethod(SSTabBarTextButton.class, @selector(setFrame:))) == HGButtonFrameBeforeLoad, @"Native tab frame method was hooked");
@@ -330,7 +356,7 @@ static void HGWriteProgress(NSInteger phase) {
             [self checkTabHeight:54]; HGWritePreference(@"right.comment", @NO);
         } else if (self.phase == 9) {
             HGCheck(self.fixture.right.items[1].hidden, @"Right visibility switch did not hide comment");
-            HGCheck(closeTo(self.fixture.right.items[0].frame.origin.y, 74), @"Visible right items did not compact");
+            HGCheck(closeTo(self.fixture.right.items[0].frame.origin.y, 284 - 62 - 2 * MAX(44, 62 * HGNumber(@"right.scale") + HGNumber(@"right.gap"))), @"Visible right items did not compact");
             HGWritePreference(@"enabled", @NO);
         } else {
             HGCheck(!self.fixture.bar.oldBlur.hidden && !self.fixture.bar.oldImage.hidden, @"Tab backgrounds did not restore");
@@ -366,3 +392,4 @@ static void HGRecordNativeMethods(void) {
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
+
