@@ -307,6 +307,16 @@ static void HGWriteProgress(NSInteger phase) {
             HGCheck(closeTo(title.font.pointSize, 20), @"Top font failed to restore");
             HGWritePreference(@"top.enabled", @YES); [header layoutSubviews];
             HGCheck(closeTo(title.font.pointSize, 17), @"Top font retry accumulated scaling");
+            NSAttributedString *rich = [[NSAttributedString alloc] initWithString:@"推荐" attributes:@{NSFontAttributeName:[UIFont boldSystemFontOfSize:20], NSForegroundColorAttributeName:UIColor.whiteColor}];
+            for (NSUInteger repeat = 0; repeat < 5; repeat++) {
+                title.attributedText = rich;
+                HGCheck(closeTo([[title.attributedText attribute:NSFontAttributeName atIndex:0 effectiveRange:nil] pointSize], 17), @"Attributed top font reset defeated scaling");
+                [header layoutSubviews];
+                HGCheck(closeTo([[title.attributedText attribute:NSFontAttributeName atIndex:0 effectiveRange:nil] pointSize], 17), @"Attributed top font shrank cumulatively");
+            }
+            HGWritePreference(@"top.enabled", @NO); [header layoutSubviews];
+            HGCheck(closeTo([[title.attributedText attribute:NSFontAttributeName atIndex:0 effectiveRange:nil] pointSize], 20), @"Attributed font failed to restore");
+            HGWritePreference(@"top.enabled", @YES);
             [header removeFromSuperview];
             FQVShortVideoListViewController *detail = [FQVShortVideoListViewController new];
             [self.window.rootViewController addChildViewController:detail];
@@ -392,4 +402,5 @@ static void HGRecordNativeMethods(void) {
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
+
 

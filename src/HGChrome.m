@@ -30,6 +30,8 @@ static NSString *HGRightKey(UIView *view) {
 @interface HGFontState : NSObject
 @property(nonatomic, strong) UIFont *host;
 @property(nonatomic, strong) UIFont *applied;
+@property(nonatomic, strong) NSAttributedString *hostText;
+@property(nonatomic, strong) NSAttributedString *appliedText;
 @end
 @implementation HGFontState
 @end
@@ -97,6 +99,16 @@ static BOOL HGInHeader(UIView *view) {
     for (UIView *parent = view; parent; parent = parent.superview) if (HGIsClass(parent, @"SSVideoSeriesFeedHeaderView")) return YES;
     return NO;
 }
+static NSAttributedString *HGHeaderText(HGFontState *state, NSAttributedString *text, BOOL active) {
+    if (!text) { state.hostText = nil; state.appliedText = nil; return nil; }
+    if (![text isEqualToAttributedString:state.appliedText]) state.hostText = [text copy];
+    if (!active) { state.appliedText = nil; return state.hostText; }
+    NSMutableAttributedString *result = [state.hostText mutableCopy];
+    [state.hostText enumerateAttribute:NSFontAttributeName inRange:NSMakeRange(0, state.hostText.length) options:0 usingBlock:^(id font, NSRange range, BOOL *stop) {
+        if ([font isKindOfClass:UIFont.class]) [result addAttribute:NSFontAttributeName value:[font fontWithSize:MAX(10, [font pointSize] * HGNumber(@"top.scale"))] range:range];
+    }];
+    state.appliedText = result; return result;
+}
 static void HGScaleHeaderFonts(UIView *root) {
     if ([root isKindOfClass:UILabel.class]) {
         UILabel *label = (id)root;
@@ -111,6 +123,8 @@ static void HGScaleHeaderFonts(UIView *root) {
             UIFont *font = active ? [state.host fontWithSize:MAX(10, state.host.pointSize * HGNumber(@"top.scale"))] : state.host;
             if (![label.font isEqual:font]) HGApply(^{ label.font = font; });
             state.applied = active ? font : nil;
+            NSAttributedString *text = HGHeaderText(state, label.attributedText, active);
+            if (text && ![text isEqualToAttributedString:label.attributedText]) HGApply(^{ label.attributedText = text; });
         }
     }
     for (UIView *child in root.subviews) HGScaleHeaderFonts(child);
@@ -163,9 +177,22 @@ void HGInstallChrome(void) {
             ((void (*)(id, SEL, UIFont *))original)(label, fontSelector, output);
         };
     });
+    SEL attributedSelector = @selector(setAttributedText:);
+    HGInstall(UILabel.class, attributedSelector, ^id(IMP original) {
+        return ^(UILabel *label, NSAttributedString *text) {
+            NSAttributedString *output = text;
+            if (!HGIsApplying() && HGInHeader(label)) {
+                HGFontState *state = objc_getAssociatedObject(label, &HGFontStateKey);
+                if (!state) { state = [HGFontState new]; state.host = label.font; objc_setAssociatedObject(label, &HGFontStateKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
+                output = HGHeaderText(state, text, HGEnabled() && HGBool(@"top.enabled"));
+            }
+            ((void (*)(id, SEL, NSAttributedString *))original)(label, attributedSelector, output);
+        };
+    });
     HGHookLayout(@"SSHGBookStoreCategoryTitleCell", ^(UIView *view) { if (HGInHeader(view)) HGScaleHeaderFonts(view); });
     HGHookLayout(@"SSVideoSeriesFeedHeaderView", ^(UIView *view) { HGScaleHeaderFonts(view); });
     HGHookLayout(@"FQRJXCategoryCollectionView", ^(UIView *view) { if (HGInHeader(view)) HGScaleHeaderFonts(view); });
 }
+
 
 
