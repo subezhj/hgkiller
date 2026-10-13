@@ -7,6 +7,7 @@ static NSUInteger HGBarPasses, HGRightPasses, HGChecks, HGSteadyRightPasses, HGB
 static BOOL HGDidTripSafety;
 static UIView *HGProjectedPlayer, *HGProjectedControls;
 static UILabel *HGProjectedTitle;
+static UIView *HGReclaimedEntry;
 static IMP HGFeedFrameBeforeLoad, HGPlayerFrameBeforeLoad, HGItemBeforeLoad, HGSizeBeforeLoad, HGButtonFrameBeforeLoad, HGTabFrameOriginal, HGTabLayoutOriginal;
 static void HGFinish(NSString *error) {
     NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject
@@ -250,7 +251,9 @@ static UIView *HGFixtureDramaContainer;
         controls.autoresizingMask = UIViewAutoresizingFlexibleWidth; [cell.contentView addSubview:controls];
         UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 645, 240, 22)];
         title.text = @"别叫姐姐"; [controls addSubview:title];
-        if (path.item == 0) { HGProjectedPlayer = player; HGProjectedControls = controls; HGProjectedTitle = title; }
+        UIView *entry = [[FQVShortVideoBaseInsertView alloc] initWithFrame:CGRectMake(0, 740, view.bounds.size.width, 44)];
+        [controls addSubview:entry];
+        if (path.item == 0) { HGProjectedPlayer = player; HGProjectedControls = controls; HGProjectedTitle = title; HGReclaimedEntry = entry; }
     }
     return cell;
 }
@@ -521,6 +524,8 @@ static UIView *HGFixtureDramaContainer;
             HGCheck(closeTo(coldTab.bounds.size.height, 62), @"First appearance ignored persisted height setting");
             [coldTab removeFromSuperview];
             HGCheck(closeTo(HGProjectedPlayer.bounds.size.height, targetPage), @"Player did not follow reclaimed cell geometry");
+            HGCheck(closeTo(CGRectGetMaxY(HGReclaimedEntry.frame), targetPage), @"Episode entry left a gap before the reclaimed tab");
+            HGCheck(closeTo(HGProjectedTitle.frame.origin.y, 645), @"Reclaimed viewport moved the fixed drama title");
             HGCheck(CATransform3DIsIdentity(self.fixture.collection.layer.sublayerTransform), @"Reclaimed viewport used layer projection");
             [self.fixture.collection setContentOffset:CGPointMake(0, targetPage) animated:NO];
             HGWritePreference(@"tab.appearance.height", @70); [bar layoutSubviews];
