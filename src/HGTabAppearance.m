@@ -10,6 +10,7 @@ static char HGAppearanceKey, HGOpacityKey, HGAppearanceCaptionKey, HGRowColorKey
 @property(nonatomic) CATransform3D host;
 @end
 @implementation HGAppearanceCaption @end
+void HGReflowTabAllocation(UIView *bar);
 static UIView *HGAppearanceBar(UIView *view) {
     for (UIView *node = view; node; node = node.superview) if (HGIsClass(node, @"SSTabBar")) return node;
     return nil;
@@ -40,6 +41,7 @@ void HGTabAppearanceCaption(UIView *button) {
     HGApply(^{ if (!CATransform3DEqualToTransform(button.layer.sublayerTransform, target)) button.layer.sublayerTransform = target; });
 }
 static void HGAppearanceLayout(UIView *bar) {
+    HGReflowTabAllocation(bar);
     HGAppearance *state = objc_getAssociatedObject(bar, &HGAppearanceKey);
     BOOL active = HGAppearanceActive(bar);
     BOOL allocation = HGEnabled() && HGBool(@"tab.layout.enabled");

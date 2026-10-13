@@ -44,8 +44,6 @@ static void HGReloadPreferences(void) {
     // Do not honor old saved fullscreen values in this hotfix; the corresponding hooks are absent.
     values[@"video.extend"] = @NO;
     values[@"video.fillPortrait"] = @NO;
-    // Host app freeze reported during real viewport resizing. Quarantine all allocation hooks.
-    values[@"tab.layout.enabled"] = @NO;
     HGPreferences = [values copy];
 }
 static char HGLayoutBurstKey;
@@ -68,7 +66,16 @@ NSString *HGSafetyReason(void) {
 }
 static BOOL HGObserveLayout(id object, SEL selector) { return YES; } // Temporarily disabled at user request.
 
-void HGInitializePreferences(void) { HGReloadPreferences(); }
+void HGInitializePreferences(void) {
+    // Do not silently reactivate a saved v0.1.15 switch on the first experimental upgrade.
+    NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
+    NSString *revision = [HGPreferencePrefix stringByAppendingString:@"tab.layout.experimentalRevision"];
+    if (![[defaults stringForKey:revision] isEqualToString:@"0.1.17"]) {
+        [defaults setBool:NO forKey:[HGPreferencePrefix stringByAppendingString:@"tab.layout.enabled"]];
+        [defaults setObject:@"0.1.17" forKey:revision];
+    }
+    HGReloadPreferences();
+}
 BOOL HGEnabled(void) { return !HGSafetyTripped && [HGPreferences[@"enabled"] boolValue]; }
 BOOL HGBool(NSString *key) { return [key isEqualToString:@"enabled"] ? HGEnabled() : [HGPreferences[key] boolValue]; }
 CGFloat HGNumber(NSString *key) { return [HGPreferences[key] doubleValue]; }

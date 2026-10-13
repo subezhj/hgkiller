@@ -4,6 +4,7 @@
 // Real viewport geometry. Never stretch the collection's rendered layer tree.
 static char HGAllocationKey;
 static NSUInteger HGSourceLayoutDepth;
+static BOOL HGAllocationUpdating;
 @interface HGAllocation : NSObject
 @property(nonatomic) CGRect source;
 @property(nonatomic) CGRect applied;
@@ -106,14 +107,17 @@ static void HGAllocationApply(UIView *view) {
     }
 }
 void HGReflowTabAllocation(UIView *bar) {
-    if (!bar.window || HGIsApplying()) return;
-    HGAllocationApply(bar);
-    NSMutableArray<UIView *> *queue = [NSMutableArray arrayWithObject:bar.window];
-    while (queue.count) {
-        UIView *view = queue.lastObject; [queue removeLastObject];
-        if (HGIsClass(view, @"FQVCollectionView")) HGAllocationApply(view);
-        else [queue addObjectsFromArray:view.subviews];
-    }
+    if (!bar.window || HGIsApplying() || HGAllocationUpdating) return;
+    HGAllocationUpdating = YES;
+    @try {
+        HGAllocationApply(bar);
+        NSMutableArray<UIView *> *queue = [NSMutableArray arrayWithObject:bar.window];
+        while (queue.count) {
+            UIView *view = queue.lastObject; [queue removeLastObject];
+            if (HGIsClass(view, @"FQVCollectionView")) HGAllocationApply(view);
+            else [queue addObjectsFromArray:view.subviews];
+        }
+    } @finally { HGAllocationUpdating = NO; }
 }
 static HGAllocation *HGLayoutState(UICollectionViewLayout *layout) {
     if (!HGIsClass(layout.collectionView, @"FQVCollectionView")) return nil;
@@ -215,6 +219,7 @@ void HGInstallTabAllocation(void) {
                 state.source = frame;
                 CGRect target = HGAllocationTarget(view, frame);
                 state.applied = target; state.active = !CGRectEqualToRect(target, frame);
+                if (state.active && CGRectEqualToRect(view.frame, target)) return;
                 UICollectionView *collection = HGIsClass(view, @"FQVCollectionView") ? (id)view : nil;
                 CGFloat oldPage = view.bounds.size.height; CGPoint offset = collection.contentOffset;
                 if (collection) HGAllocationLayoutHooks(collection.collectionViewLayout);

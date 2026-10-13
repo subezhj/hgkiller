@@ -105,8 +105,8 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         @[
             @{@"key": @"tab.textScale", @"title": @"底栏文字大小", @"slider": @YES, @"min": @0.55, @"max": @1.2},
             @{@"key": @"tab.appearance.enabled", @"title": @"深色模糊背景"},
-            @{@"key": @"tab.layout.enabled", @"title": @"实际高度调整（暂时停用）", @"disabled": @YES},
-            @{@"key": @"tab.appearance.height", @"title": @"底栏高度（暂时停用）", @"disabled": @YES, @"slider": @YES, @"unit": @"pt", @"min": @62, @"max": @84},
+            @{@"key": @"tab.layout.enabled", @"title": @"实际高度调整（实验）"},
+            @{@"key": @"tab.appearance.height", @"title": @"底栏高度", @"slider": @YES, @"unit": @"pt", @"min": @62, @"max": @84},
 
         ],
         @[
@@ -141,10 +141,10 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
     switch (section) {
         case 0: return @"关闭后恢复 hgkiller 调整的布局。本版本暂时停用布局保护。";
         case 1: return @"关闭某项后自动收紧排列；大小 55%–100%，间距 0–24 pt。首次显示与后续布局统一应用。";
-        case 2: return @"实际高度调整因真机卡死反馈暂时停用。模糊覆盖完整原生底栏，不再添加黑色填充；播放区域与分页保持原生。";
+        case 2: return @"实际高度调整为实验功能，默认关闭。开启后调整底栏与首页播放区域，包含底部安全区。此前真机出现过卡住，尚未确认根因。关闭时模糊覆盖完整原生底栏。";
         case 3: return @"调整首页顶部分类与搜索文字，保留原来的入口。";
         case 4: return @"剧名与集数、简介、展开分别调整为原字号的 55%–100%。默认原字号，不修改文案容器位置。";
-        default: return @"hgkiller 0.1.16 · 红果短剧 7.3.9 适配";
+        default: return @"hgkiller 0.1.17 · 红果短剧 7.3.9 适配";
     }
 }
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)path {
@@ -227,7 +227,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         message = [message stringByAppendingFormat:@"\n\n当前状态：%@\n布局保护：暂时停用", HGSettingsState()];
         message = [message stringByAppendingFormat:@"\n实际高度调整：%@\n设置高度：%.0f pt", HGBool(@"tab.layout.enabled") ? @"开启" : @"关闭", HGNumber(@"tab.appearance.height")];
         if (HGSafetyReason().length) message = [message stringByAppendingFormat:@"\n\n上次保护记录（历史）：%@", HGSafetyReason()];
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.16"
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.17"
                                                                       message:message preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:alert animated:YES completion:nil];
