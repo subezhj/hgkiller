@@ -306,7 +306,7 @@ static UIView *HGFixtureDramaContainer;
     [self.fixture.collection layoutSubviews];
     HGCheck(rectClose(bar.frame, CGRectMake(0, self.window.bounds.size.height - 84, self.window.bounds.size.width, 84)), @"Legacy height setting still changes native tab frame");
     HGCheck(!bar.oldBlur.hidden && !bar.oldImage.hidden, @"Native background changed");
-    HGCheck(method_getImplementation(class_getInstanceMethod(SSTabBar.class, @selector(setFrame:))) == HGTabFrameOriginal, @"Tab frame hook remains installed");
+    HGCheck(!HGBool(@"tab.layout.enabled"), @"Allocation must be disabled during native baseline checks");
     HGCheck(!HGBool(@"tab.appearance.enabled"), @"Appearance should be disabled during native baseline checks");
     for (CALayer *layer in bar.layer.superlayer.sublayers) HGCheck(![layer.name isEqualToString:@"HGK.nativeTabUnderlay"], @"Black tab underlay still installed");
     HGCheck(bar.subviews.count == 3, @"Plugin inserted a floating blur background");
@@ -471,10 +471,9 @@ static UIView *HGFixtureDramaContainer;
             HGCheck(closeTo(layout.collectionViewContentSize.height, 784 * 3), @"Hotfix changed native content size");
             for (SSTabBarTextButton *button in self.fixture.bar.buttons) [button sendActionsForControlEvents:UIControlEventTouchUpInside];
             HGCheck(self.fixture.taps == 3, @"Original tab actions lost");
-            HGCheck(method_getImplementation(class_getInstanceMethod(FQVCollectionView.class, @selector(setFrame:))) == HGFeedFrameBeforeLoad, @"Feed frame method was hooked");
+            HGCheck(!HGBool(@"tab.layout.enabled"), @"Allocation unexpectedly enabled by default");
             HGCheck(method_getImplementation(class_getInstanceMethod(FQVPlayer.class, @selector(setFrame:))) == HGPlayerFrameBeforeLoad, @"Player frame method was hooked");
-            HGCheck(method_getImplementation(class_getInstanceMethod(HGFixtureLayout.class, @selector(layoutAttributesForItemAtIndexPath:))) == HGItemBeforeLoad, @"Native item attributes were hooked");
-            HGCheck(method_getImplementation(class_getInstanceMethod(HGFixtureLayout.class, @selector(collectionViewContentSize))) == HGSizeBeforeLoad, @"Native content size was hooked");
+            HGCheck(closeTo(page.origin.y, 784) && closeTo(layout.collectionViewContentSize.height, 2352), @"Inactive allocation modified layout results");
             HGWritePreference(@"video.extend", @YES);
             HGCheck(!HGBool(@"video.extend"), @"Saved fullscreen setting bypassed hotfix isolation");
             SSTabBar *bar = self.fixture.bar;
@@ -498,6 +497,30 @@ static UIView *HGFixtureDramaContainer;
             HGCheck(closeTo(appearance.frame.size.height, 84), @"Appearance height did not update");
             HGWritePreference(@"tab.appearance.enabled", @NO); [bar layoutSubviews];
             HGCheck(![bar viewWithTag:0x48474A] && closeTo(bar.oldBlur.layer.opacity, 1) && closeTo(bar.oldImage.layer.opacity, 1), @"Native paint failed to restore");
+            [self checkTabHeight:50];
+            HGWritePreference(@"tab.appearance.height", @62); HGWritePreference(@"tab.layout.enabled", @YES);
+            [bar layoutSubviews]; [self.fixture.collection layoutIfNeeded];
+            CGFloat targetPage = self.window.bounds.size.height - 62;
+            HGCheck(closeTo(bar.frame.origin.y, targetPage) && closeTo(bar.bounds.size.height, 62), @"Actual tab height was not reclaimed");
+            HGCheck(closeTo(CGRectGetMaxY(self.fixture.collection.frame), targetPage), @"Viewport did not meet actual tab top");
+            HGCheck(closeTo(layout.collectionViewContentSize.height, targetPage * 3), @"Reclaimed content size mismatches page count");
+            for (NSInteger n = 0; n < 3; n++) {
+                CGRect item = [layout layoutAttributesForItemAtIndexPath:[NSIndexPath indexPathForItem:n inSection:0]].frame;
+                HGCheck(closeTo(item.origin.y, n * targetPage) && closeTo(item.size.height, targetPage), @"Reclaimed page attributes mismatch viewport");
+            }
+            HGCheck(closeTo(HGProjectedPlayer.bounds.size.height, targetPage), @"Player did not follow reclaimed cell geometry");
+            HGCheck(CATransform3DIsIdentity(self.fixture.collection.layer.sublayerTransform), @"Reclaimed viewport used layer projection");
+            [self.fixture.collection setContentOffset:CGPointMake(0, targetPage) animated:NO];
+            HGWritePreference(@"tab.appearance.height", @70); [bar layoutSubviews];
+            HGCheck(closeTo(self.fixture.collection.contentOffset.y, self.window.bounds.size.height - 70), @"Resizing jumped to a different episode");
+            for (NSUInteger pass = 0; pass < 12; pass++) {
+                [self.fixture viewDidLayoutSubviews]; [bar layoutSubviews]; [self.fixture.collection layoutIfNeeded];
+                HGCheck(closeTo(bar.bounds.size.height, 70) && closeTo(self.fixture.collection.bounds.size.height, self.window.bounds.size.height - 70), @"Host reset defeated actual height");
+            }
+            HGWritePreference(@"tab.layout.enabled", @NO); [bar layoutSubviews]; [self.fixture.collection layoutIfNeeded];
+            HGCheck(closeTo(self.fixture.collection.contentOffset.y, 784), @"Disabling allocation lost original episode");
+            [self.fixture.collection setContentOffset:CGPointZero animated:NO]; [self.fixture.collection layoutIfNeeded];
+            HGWritePreference(@"tab.appearance.height", @84); [bar layoutSubviews];
             [self checkTabHeight:50];
             HGWritePreference(@"right.scale", scales[0]);
         } else if (self.phase <= scales.count) {

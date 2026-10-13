@@ -21,7 +21,7 @@ static NSDictionary *HGDefaults(void) {
         @"right.avatar": @YES, @"right.collect": @YES,
         @"right.comment": @YES, @"right.like": @YES, @"right.share": @YES,
         @"right.scale": @0.80, @"right.gap": @6.0,
-        @"tab.textScale": @1.0, @"tab.appearance.enabled": @NO, @"tab.appearance.height": @84.0, @"video.extend": @NO,
+        @"tab.textScale": @1.0, @"tab.appearance.enabled": @NO, @"tab.layout.enabled": @NO, @"tab.appearance.height": @84.0, @"video.extend": @NO,
         @"video.fillPortrait": @NO,
         @"caption.enabled": @YES, @"caption.titleScale": @1.0, @"caption.descriptionScale": @1.0,
         @"top.enabled": @YES, @"top.scale": @0.85

@@ -2,6 +2,7 @@
 static char HGAppearanceKey, HGOpacityKey, HGAppearanceCaptionKey, HGRowColorKey;
 @interface HGAppearance : NSObject
 @property(nonatomic, strong) UIColor *hostBackground;
+@property(nonatomic) BOOL hostClips;
 @property(nonatomic, strong) UIView *black;
 @property(nonatomic, strong) UIVisualEffectView *blur;
 @end
@@ -10,6 +11,7 @@ static char HGAppearanceKey, HGOpacityKey, HGAppearanceCaptionKey, HGRowColorKey
 @property(nonatomic) CATransform3D host;
 @end
 @implementation HGAppearanceCaption @end
+void HGReflowTabAllocation(UIView *bar);
 static UIView *HGAppearanceBar(UIView *view) {
     for (UIView *node = view; node; node = node.superview) if (HGIsClass(node, @"SSTabBar")) return node;
     return nil;
@@ -24,7 +26,7 @@ static BOOL HGCaptionChild(UIView *view) {
 void HGTabAppearanceCaption(UIView *button) {
     UIView *bar = HGAppearanceBar(button);
     HGAppearanceCaption *state = objc_getAssociatedObject(button, &HGAppearanceCaptionKey);
-    BOOL active = HGAppearanceActive(bar);
+    BOOL active = HGAppearanceActive(bar) || (bar && HGEnabled() && HGBool(@"tab.layout.enabled"));
     if (!state && !active) return;
     if (!state) { state = [HGAppearanceCaption new]; state.host = button.layer.sublayerTransform; objc_setAssociatedObject(button, &HGAppearanceCaptionKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
     CATransform3D target = state.host;
@@ -40,10 +42,13 @@ void HGTabAppearanceCaption(UIView *button) {
     HGApply(^{ if (!CATransform3DEqualToTransform(button.layer.sublayerTransform, target)) button.layer.sublayerTransform = target; });
 }
 static void HGAppearanceLayout(UIView *bar) {
+    HGReflowTabAllocation(bar);
     HGAppearance *state = objc_getAssociatedObject(bar, &HGAppearanceKey);
     BOOL active = HGAppearanceActive(bar);
-    if (!state && !active) return;
-    if (!state) { state = [HGAppearance new]; state.hostBackground = bar.backgroundColor; objc_setAssociatedObject(bar, &HGAppearanceKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
+    BOOL allocation = HGEnabled() && HGBool(@"tab.layout.enabled");
+    if (!state && !active && !allocation) return;
+    if (!state) { state = [HGAppearance new]; state.hostBackground = bar.backgroundColor; state.hostClips = bar.clipsToBounds; objc_setAssociatedObject(bar, &HGAppearanceKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
+    if (bar.clipsToBounds != (allocation ? YES : state.hostClips)) bar.clipsToBounds = allocation ? YES : state.hostClips;
     if (active && !state.blur) {
         state.black = [[UIView alloc] initWithFrame:bar.bounds]; state.black.backgroundColor = UIColor.blackColor;
         state.black.userInteractionEnabled = NO; state.black.accessibilityElementsHidden = YES;
