@@ -175,11 +175,13 @@ void HGInstallChrome(void) {
     HGInstall(NSClassFromString(@"SSShortVideoRightInteractionView"), moved, ^id(IMP original) {
         return ^(UIView *container) { ((void (*)(id, SEL))original)(container, moved); HGTrackRight(container); };
     });
+    static dispatch_once_t observerOnce; dispatch_once(&observerOnce, ^{
     CFRunLoopObserverRef observer = CFRunLoopObserverCreateWithHandler(kCFAllocatorDefault, kCFRunLoopBeforeWaiting, true, LONG_MAX, ^(CFRunLoopObserverRef observer, CFRunLoopActivity activity) {
         for (UIView *container in HGRightContainers.allObjects) if (container.window)
             HGApply(^{ for (UIView *item in HGRightItems(container)) HGApplyRightItem(item); });
     });
     CFRunLoopAddObserver(CFRunLoopGetMain(), observer, kCFRunLoopCommonModes); CFRelease(observer);
+    });
     for (NSString *name in HGRightClasses()) {
         SEL frameSelector = @selector(setFrame:);
         HGInstall(NSClassFromString(name), frameSelector, ^id(IMP original) {
@@ -272,6 +274,7 @@ void HGInstallChrome(void) {
     HGHookLayout(@"SSVideoSeriesFeedHeaderView", ^(UIView *view) { HGScaleHeaderFonts(view); });
     HGHookLayout(@"FQRJXCategoryCollectionView", ^(UIView *view) { if (HGInHeader(view)) HGScaleHeaderFonts(view); });
 }
+
 
 
 

@@ -407,6 +407,7 @@ static UIView *HGFixtureDramaContainer;
             HGCheck(closeTo(HGVisualY(detailRight.items[1]) - HGVisualY(detailRight.items[0]), 73.6), @"Right gap setting ineffective");
             HGWritePreference(@"right.gap", @6);
             UIView *avatar = [[SSShortVideoRightInteractionAvatarView alloc] initWithFrame:CGRectMake(0, 0, 46, 46)];
+            for (UIView *child in avatar.subviews.copy) [child removeFromSuperview];
             UIView *badge = [[UIView alloc] initWithFrame:CGRectMake(3, 24, 40, 26)]; [avatar addSubview:badge];
             [detailRight addSubview:avatar]; detailRight.frame = CGRectMake(346, 423, 46, 342);
             for (NSUInteger cycle = 0; cycle < 6; cycle++) {
@@ -552,6 +553,7 @@ static void HGRecordNativeMethods(void) {
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
+
 
 
 
