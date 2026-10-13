@@ -177,6 +177,16 @@ void HGInstallChrome(void) {
             ((void (*)(id, SEL, UIFont *))original)(label, fontSelector, output);
         };
     });
+    SEL textSelector = @selector(setText:);
+    HGInstall(UILabel.class, textSelector, ^id(IMP original) {
+        return ^(UILabel *label, NSString *text) {
+            if (!HGIsApplying()) {
+                HGFontState *state = objc_getAssociatedObject(label, &HGFontStateKey);
+                state.hostText = nil; state.appliedText = nil;
+            }
+            ((void (*)(id, SEL, NSString *))original)(label, textSelector, text);
+        };
+    });
     SEL attributedSelector = @selector(setAttributedText:);
     HGInstall(UILabel.class, attributedSelector, ^id(IMP original) {
         return ^(UILabel *label, NSAttributedString *text) {
@@ -193,6 +203,7 @@ void HGInstallChrome(void) {
     HGHookLayout(@"SSVideoSeriesFeedHeaderView", ^(UIView *view) { HGScaleHeaderFonts(view); });
     HGHookLayout(@"FQRJXCategoryCollectionView", ^(UIView *view) { if (HGInHeader(view)) HGScaleHeaderFonts(view); });
 }
+
 
 
 
