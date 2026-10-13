@@ -20,7 +20,7 @@ static void HGCheck(BOOL condition, NSString *message) {
 }
 static BOOL closeTo(CGFloat a, CGFloat b) { return fabs(a - b) < 0.3; }
 
-static CGFloat HGVisualY(UIView *view) { return view.center.y + view.layer.sublayerTransform.m42; }
+static CGFloat HGVisualY(UIView *view) { return [view.superview convertPoint:CGPointMake(CGRectGetMidX(view.bounds), CGRectGetMidY(view.bounds)) fromView:view].y; }
 static BOOL rectClose(CGRect a, CGRect b) {
     return fabs(a.origin.x - b.origin.x) < 0.01 && fabs(a.origin.y - b.origin.y) < 0.01 &&
            fabs(a.size.width - b.size.width) < 0.01 && fabs(a.size.height - b.size.height) < 0.01;
@@ -128,18 +128,25 @@ static void HGWriteProgress(NSInteger phase) {
 }
 @end
 
-@interface HGFixtureRightItem : UIView @end
+static NSUInteger HGRightActionCount;
+@interface HGFixtureRightItem : UIView
+@property(nonatomic, strong) UIButton *action;
+@end
 @implementation HGFixtureRightItem
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
         UIView *icon = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 46, 46)];
         icon.backgroundColor = UIColor.whiteColor;
+        self.action = [UIButton buttonWithType:UIButtonTypeCustom]; self.action.frame = self.bounds;
+        self.action.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        [self.action addTarget:self action:@selector(onTap:) forControlEvents:UIControlEventTouchUpInside];
         UILabel *text = [[UILabel alloc] initWithFrame:CGRectMake(0, 46, 46, 16)];
-        text.text = @"收藏"; [self addSubview:icon]; [self addSubview:text];
+        text.text = @"收藏"; [self addSubview:icon]; [self addSubview:text]; [self addSubview:self.action];
     }
     return self;
 }
+- (void)onTap:(id)sender { HGRightActionCount++; }
 @end
 @interface SSShortVideoRightInteractionAvatarView : HGFixtureRightItem @end
 @implementation SSShortVideoRightInteractionAvatarView @end
@@ -321,7 +328,7 @@ static UILabel *HGFixtureBottomLabel;
     @try {
         NSArray *scales = @[@0.55, @0.80, @1.0, @0.55, @0.80];
         if (self.phase == 0) {
-            for (UIView *item in self.fixture.right.items) HGCheck(closeTo(item.layer.sublayerTransform.m11, 0.8), @"Cold launch scaled only one interaction");
+            for (UIView *item in self.fixture.right.items) HGCheck(closeTo(item.transform.a, 0.8), @"Cold launch scaled only one interaction");
             UIView *header = [[SSVideoSeriesFeedHeaderView alloc] initWithFrame:CGRectMake(0, 62, 300, 44)];
             [self.fixture.feed.view addSubview:header];
             UILabel *title = [UILabel new]; [header addSubview:title];
@@ -349,7 +356,7 @@ static UILabel *HGFixtureBottomLabel;
             [self.window.rootViewController.view addSubview:detail.view];
             SSShortVideoRightInteractionView *detailRight = [[SSShortVideoRightInteractionView alloc] initWithFrame:CGRectMake(346, 481, 46, 284)];
             [detail.view addSubview:detailRight]; [detailRight layoutSubviews];
-            for (UIView *item in detailRight.items) HGCheck(closeTo(item.layer.sublayerTransform.m11, 0.8), @"Standalone all-episodes scaling missing");
+            for (UIView *item in detailRight.items) HGCheck(closeTo(item.transform.a, 0.8), @"Standalone all-episodes scaling missing");
             HGWritePreference(@"right.gap", @0); [detailRight layoutSubviews];
             HGCheck(closeTo(HGVisualY(detailRight.items[1]) - HGVisualY(detailRight.items[0]), 49.6), @"Right gap did not compact scaled items");
             HGWritePreference(@"right.gap", @24); [detailRight layoutSubviews];
@@ -382,15 +389,22 @@ static UILabel *HGFixtureBottomLabel;
             double expected = [scales[self.phase - 1] doubleValue];
             NSUInteger itemIndex = 0;
             for (UIView *item in self.fixture.right.items) {
-                HGCheck(closeTo(item.frame.origin.y, itemIndex * 74), @"Plugin changed native interaction frame");
+                HGCheck(closeTo(item.center.y, itemIndex * 74 + 31), @"Native interaction center was overwritten");
                 CGFloat center = 284 - (4 * 62 * expected + 3 * HGNumber(@"right.gap")) + 31 * expected + itemIndex * (62 * expected + HGNumber(@"right.gap"));
                 HGCheck(closeTo(HGVisualY(item), center), @"Right visual spacing was overwritten by host layout");
                 CGPoint touch = CGPointMake(23, center);
                 UIView *hit = [self.fixture.right hitTest:touch withEvent:nil];
-                HGCheck(hit == item || [hit isDescendantOfView:item], @"Compact visual control touch mapped to wrong item");
+                                HGCheck(hit == item || [hit isDescendantOfView:item], @"Compact visual control touch mapped to wrong item");
+                HGCheck([hit isKindOfClass:UIButton.class], @"Native action button not reached");
+                CGPoint physical = [self.fixture.right convertPoint:touch toView:self.window];
+                CGPoint tracking = [hit convertPoint:physical fromView:self.window];
+                HGCheck([hit pointInside:tracking withEvent:nil], @"Real window touch coordinate rejected by native button");
+                NSUInteger before = HGRightActionCount;
+                [(UIControl *)hit sendActionsForControlEvents:UIControlEventTouchUpInside];
+                HGCheck(HGRightActionCount == before + 1, @"Original right control action was lost");
                 itemIndex++;
-                HGCheck(closeTo(item.layer.sublayerTransform.m11, expected), @"Right visual scaling not applied or accumulated");
-                HGCheck(CGAffineTransformIsIdentity(item.transform), @"Scaling changed the hit-test view transform");
+                HGCheck(closeTo(item.transform.a, expected), @"Right visual scaling not applied or accumulated");
+                HGCheck(closeTo(item.transform.d, expected), @"View scaling differed across axes");
                 HGCheck(closeTo(item.bounds.size.width, 46) && closeTo(item.bounds.size.height, 62), @"Scaling resized native hit bounds");
             }
             HGCheck(HGRightPasses < 150 && HGBarPasses < 150, @"Layouts failed to converge");
@@ -410,7 +424,7 @@ static UILabel *HGFixtureBottomLabel;
             HGCheck(!self.fixture.bar.oldBlur.hidden && !self.fixture.bar.oldImage.hidden, @"Tab backgrounds did not restore");
             HGCheck(closeTo(self.fixture.bar.bounds.size.height, 84), @"Original tab frame did not restore");
             HGCheck(closeTo(self.fixture.collection.bounds.size.height, self.fixture.list.view.bounds.size.height - 90), @"Feed viewport did not restore");
-            for (UIView *item in self.fixture.right.items) HGCheck(CATransform3DIsIdentity(item.layer.sublayerTransform), @"Right visual scale did not restore");
+            for (UIView *item in self.fixture.right.items) HGCheck(CGAffineTransformIsIdentity(item.transform), @"Right transform did not restore");
             HGCheck(!HGFixtureBottomImage.hidden && !HGFixtureBottomBlur.hidden, @"Bottom materials failed to restore when disabled");
             HGCheck([self.fixture.list.view.backgroundColor isEqual:UIColor.grayColor], @"Playback canvas did not restore");
             HGCheck([HGFixtureBottomParent.backgroundColor isEqual:UIColor.grayColor], @"Bottom parent color failed to restore");
@@ -418,10 +432,10 @@ static UILabel *HGFixtureBottomLabel;
             HGSteadyRightPasses = HGRightPasses; HGSteadyButtonPasses = HGButtonPasses;
             HGWritePreference(@"enabled", @YES);
             for (NSUInteger n = 0; n < 160; n++) [self.fixture.right layoutSubviews];
-            HGCheck(!HGEnabled(), @"Layout burst failed to disable enhancements");
-            HGCheck(HGSafetyReason().length > 0, @"Circuit breaker did not record its reason");
+            HGCheck(HGEnabled(), @"Disabled layout protection still switched enhancement off");
+            HGCheck(!HGSafetyPaused(), @"Disabled protection still paused layout");
             HGDidTripSafety = HGSafetyPaused();
-            [self checkSettingsState:@"已暂停（布局保护）"];
+            [self checkSettingsState:@"正在运行"];
             HGWritePreference(@"enabled", @YES);
             HGCheck(HGEnabled() && !HGSafetyPaused(), @"Explicit retry did not reset pause");
             HGCheck(HGSafetyReason().length > 0, @"Explicit retry deleted historical record");
@@ -429,7 +443,7 @@ static UILabel *HGFixtureBottomLabel;
         }
         if (self.phase < 9) dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.08 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             // Host resets every item after normal layout callbacks, including the first cold appearance.
-            for (UIView *item in self.fixture.right.items) item.layer.sublayerTransform = CATransform3DIdentity;
+            for (UIView *item in self.fixture.right.items) item.transform = CGAffineTransformIdentity;
         });
         self.phase++;
         [self performSelector:@selector(runPhase) withObject:nil afterDelay:0.18];
@@ -447,6 +461,7 @@ static void HGRecordNativeMethods(void) {
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
+
 
 
 

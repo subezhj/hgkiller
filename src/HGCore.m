@@ -62,29 +62,7 @@ void HGClearSafetyRecord(void) {
 NSString *HGSafetyReason(void) {
     return [NSUserDefaults.standardUserDefaults stringForKey:[HGPreferencePrefix stringByAppendingString:@"safety.lastReason"]] ?: @"";
 }
-static BOOL HGObserveLayout(id object, SEL selector) {
-    if (!HGEnabled() || HGIsApplying()) return !HGSafetyTripped;
-    HGLayoutBurst *burst = objc_getAssociatedObject(object, &HGLayoutBurstKey);
-    if (!burst) {
-        burst = [HGLayoutBurst new];
-        objc_setAssociatedObject(object, &HGLayoutBurstKey, burst, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    }
-    CFTimeInterval now = CACurrentMediaTime();
-    if (now - burst.start > 0.25 || burst.generation != HGMonitoringGeneration) {
-        burst.start = now; burst.count = 0; burst.generation = HGMonitoringGeneration;
-    }
-    if (++burst.count <= 120) return YES;
-    HGSafetyTripped = YES;
-    NSString *reason = [NSString stringWithFormat:@"%@ %@：250ms 内重复布局超过120次，已停用增强。",
-                        NSStringFromClass([object class]), NSStringFromSelector(selector)];
-    [NSUserDefaults.standardUserDefaults setObject:reason
-        forKey:[HGPreferencePrefix stringByAppendingString:@"safety.lastReason"]];
-    [NSUserDefaults.standardUserDefaults setBool:NO
-        forKey:[HGPreferencePrefix stringByAppendingString:@"enabled"]];
-    HGReloadPreferences();
-    HGRefreshViews();
-    return NO;
-}
+static BOOL HGObserveLayout(id object, SEL selector) { return YES; } // Temporarily disabled at user request.
 
 void HGInitializePreferences(void) { HGReloadPreferences(); }
 BOOL HGEnabled(void) { return !HGSafetyTripped && [HGPreferences[@"enabled"] boolValue]; }
@@ -256,4 +234,5 @@ NSArray<NSString *> *HGMissingClasses(void) {
     }
     return missing;
 }
+
 

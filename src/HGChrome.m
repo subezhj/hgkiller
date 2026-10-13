@@ -26,6 +26,8 @@ static NSString *HGRightKey(UIView *view) {
 @property(nonatomic) CATransform3D appliedSublayers;
 @property(nonatomic) BOOL scaled;
 @property(nonatomic) BOOL hostClips;
+@property(nonatomic) CGAffineTransform hostTransform;
+@property(nonatomic) CGRect nativeFrame;
 @end
 @implementation HGRightState
 @end
@@ -42,6 +44,7 @@ static HGRightState *HGRightStateFor(UIView *view) {
     if (!state) {
         state = [HGRightState new];
         state.hostHidden = view.hidden; state.hostClips = view.layer.masksToBounds;
+        state.hostTransform = view.transform; state.nativeFrame = view.frame;
         state.hostSublayers = view.layer.sublayerTransform;
         objc_setAssociatedObject(view, &HGRightStateKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
@@ -69,7 +72,7 @@ static CGPoint HGRightVisualCenter(UIView *item) {
     for (UIView *view in items) {
         if (HGRightHidden(view)) continue;
         CGFloat h = view.bounds.size.height * scale;
-        if (view == item) return CGPointMake(CGRectGetMidX(item.frame), y + h / 2);
+        if (view == item) return CGPointMake(CGRectGetMidX(HGRightStateFor(item).nativeFrame), y + h / 2);
         y += h + gap;
     }
     return item.center;
@@ -79,23 +82,28 @@ static void HGApplyRightItem(UIView *item) {
     BOOL active = HGEnabled() && HGInVideoControls(item);
     BOOL hidden = HGRightHidden(item);
     if (item.hidden != hidden) HGApply(^{ item.hidden = hidden; });
-    // Keep the captured native baseline; a partial host reset may retain our translation.
-    CATransform3D target = state.hostSublayers;
+    if (!state.scaled) state.nativeFrame = item.frame;
+    CGPoint center = active ? HGRightVisualCenter(item) : CGPointMake(CGRectGetMidX(state.nativeFrame), CGRectGetMidY(state.nativeFrame));
+    CGAffineTransform target = state.hostTransform;
     if (active) {
-        CGPoint center = HGRightVisualCenter(item);
-        target = CATransform3DConcat(state.hostSublayers, CATransform3DMakeScale(HGNumber(@"right.scale"), HGNumber(@"right.scale"), 1));
-        target.m41 += center.x - item.center.x;
-        target.m42 += center.y - item.center.y;
+        CGFloat scale = HGNumber(@"right.scale");
+        target = CGAffineTransformConcat(state.hostTransform, CGAffineTransformMake(scale, 0, 0, scale,
+            center.x - CGRectGetMidX(state.nativeFrame), center.y - CGRectGetMidY(state.nativeFrame)));
     }
-    // Scale pixels inside the unchanged hit-test view. Never reset UIView.transform or bounds in layout.
     [CATransaction begin]; [CATransaction setDisableActions:YES];
-    if (!CATransform3DEqualToTransform(item.layer.sublayerTransform, target)) {
-        HGApply(^{ item.layer.sublayerTransform = target; });
-    }
+    HGApply(^{
+        if (!CGAffineTransformEqualToTransform(item.transform, target)) item.transform = target;
+        // Every pixel and its gesture/UIControl now share UIKit's coordinate transform.
+        if (!CATransform3DEqualToTransform(item.layer.sublayerTransform, state.hostSublayers)) item.layer.sublayerTransform = state.hostSublayers;
+    });
     [CATransaction commit];
-    state.appliedSublayers = target;
     state.scaled = active;
-    HGApply(^{ if (item.layer.masksToBounds != (active ? NO : state.hostClips)) item.layer.masksToBounds = active ? NO : state.hostClips; });
+}
+static void HGRestoreRightTransform(UIView *item) {
+    HGRightState *state = objc_getAssociatedObject(item, &HGRightStateKey);
+    if (!state || !state.scaled) return;
+    HGApply(^{ item.transform = state.hostTransform; });
+    state.scaled = NO;
 }
 static NSHashTable<UIView *> *HGRightContainers;
 static void HGTrackRight(UIView *container) {
@@ -142,8 +150,13 @@ static void HGScaleHeaderFonts(UIView *root) {
     for (UIView *child in root.subviews) HGScaleHeaderFonts(child);
 }
 void HGInstallChrome(void) {
-    HGHookLayout(@"SSShortVideoRightInteractionView", ^(UIView *container) {
-        HGTrackRight(container);
+    SEL layout = @selector(layoutSubviews);
+    HGInstall(NSClassFromString(@"SSShortVideoRightInteractionView"), layout, ^id(IMP original) {
+        return ^(UIView *container) {
+            for (UIView *item in HGRightItems(container)) HGRestoreRightTransform(item);
+            ((void (*)(id, SEL))original)(container, layout);
+            HGTrackRight(container);
+        };
     });
     HGHookControllerLayout(@"FQVShortVideoListViewController", ^(UIViewController *controller) { HGFindRightContainers(controller.view); });
     SEL moved = @selector(didMoveToWindow);
@@ -156,6 +169,14 @@ void HGInstallChrome(void) {
     });
     CFRunLoopAddObserver(CFRunLoopGetMain(), observer, kCFRunLoopCommonModes); CFRelease(observer);
     for (NSString *name in HGRightClasses()) {
+        SEL frameSelector = @selector(setFrame:);
+        HGInstall(NSClassFromString(name), frameSelector, ^id(IMP original) {
+            return ^(UIView *item, CGRect frame) {
+                if (!HGIsApplying()) HGRestoreRightTransform(item);
+                ((void (*)(id, SEL, CGRect))original)(item, frameSelector, frame);
+                if (!HGIsApplying()) { HGRightStateFor(item).nativeFrame = item.frame; HGApplyRightItem(item); }
+            };
+        });
         HGHookLayout(name, ^(UIView *view) { HGApplyRightItem(view); });
         SEL hidden = @selector(setHidden:);
         HGInstall(NSClassFromString(name), hidden, ^id(IMP original) {
@@ -177,11 +198,10 @@ void HGInstallChrome(void) {
                     CGFloat d = fabs(point.y - HGRightVisualCenter(item).y);
                     if (d < distance) { nearest = item; distance = d; }
                 }
-                if (nearest && distance <= CGRectGetHeight(nearest.bounds) / 2)
-                                    {
-                    CGPoint visual = HGRightVisualCenter(nearest);
-                    CGPoint local = CGPointMake(nearest.bounds.size.width / 2 + point.x - visual.x, nearest.bounds.size.height / 2 + point.y - visual.y);
-                    return [nearest hitTest:local withEvent:event] ?: nearest;
+                if (nearest && distance <= MAX(22, nearest.bounds.size.height * HGNumber(@"right.scale") / 2)) {
+                    // UIKit converts through the actual view transform, including scale and translation.
+                    CGPoint local = [nearest convertPoint:point fromView:container];
+                    return [nearest hitTest:local withEvent:event];
                 }
             }
             return ((UIView *(*)(id, SEL, CGPoint, UIEvent *))original)(container, hitSelector, point, event);
@@ -228,6 +248,7 @@ void HGInstallChrome(void) {
     HGHookLayout(@"SSVideoSeriesFeedHeaderView", ^(UIView *view) { HGScaleHeaderFonts(view); });
     HGHookLayout(@"FQRJXCategoryCollectionView", ^(UIView *view) { if (HGInHeader(view)) HGScaleHeaderFonts(view); });
 }
+
 
 
 
