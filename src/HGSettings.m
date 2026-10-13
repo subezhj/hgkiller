@@ -220,11 +220,12 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
     } else {
         NSArray *missing = HGMissingClasses();
         NSString *version = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"未知";
-        NSString *glass = @"原生全宽背景";
+        NSString *glass = HGBool(@"tab.appearance.enabled") ? @"深色系统模糊" : @"原生全宽背景";
         NSString *message = [NSString stringWithFormat:@"红果版本：%@\n底栏：%@\n%@",
                              version, glass, missing.count ? [@"未找到类：\n" stringByAppendingString:[missing componentsJoinedByString:@"\n"]]
                                                           : @"目标类已加载。\n实际布局仍需真机验证。"];
         message = [message stringByAppendingFormat:@"\n\n当前状态：%@\n布局保护：暂时停用", HGSettingsState()];
+        message = [message stringByAppendingFormat:@"\n实际高度调整：%@\n设置高度：%.0f pt", HGBool(@"tab.layout.enabled") ? @"开启" : @"关闭", HGNumber(@"tab.appearance.height")];
         if (HGSafetyReason().length) message = [message stringByAppendingFormat:@"\n\n上次保护记录（历史）：%@", HGSafetyReason()];
         UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.15"
                                                                       message:message preferredStyle:UIAlertControllerStyleAlert];

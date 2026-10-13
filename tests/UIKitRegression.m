@@ -508,6 +508,8 @@ static UIView *HGFixtureDramaContainer;
                 CGRect item = [layout layoutAttributesForItemAtIndexPath:[NSIndexPath indexPathForItem:n inSection:0]].frame;
                 HGCheck(closeTo(item.origin.y, n * targetPage) && closeTo(item.size.height, targetPage), @"Reclaimed page attributes mismatch viewport");
             }
+            NSArray *visible = [layout layoutAttributesForElementsInRect:CGRectMake(0, targetPage + 1, 402, targetPage - 2)];
+            HGCheck(visible.count == 1 && closeTo(((UICollectionViewLayoutAttributes *)visible.firstObject).frame.origin.y, targetPage), @"Element query was not mapped to source page coordinates");
             HGCheck(closeTo(HGProjectedPlayer.bounds.size.height, targetPage), @"Player did not follow reclaimed cell geometry");
             HGCheck(CATransform3DIsIdentity(self.fixture.collection.layer.sublayerTransform), @"Reclaimed viewport used layer projection");
             [self.fixture.collection setContentOffset:CGPointMake(0, targetPage) animated:NO];
@@ -522,6 +524,13 @@ static UIView *HGFixtureDramaContainer;
             [self.fixture.collection setContentOffset:CGPointZero animated:NO]; [self.fixture.collection layoutIfNeeded];
             HGWritePreference(@"tab.appearance.height", @84); [bar layoutSubviews];
             [self checkTabHeight:50];
+            // A full-height collection under the same feed must stay outside home tab adaptation.
+            FQVCollectionView *detail = [[FQVCollectionView alloc] initWithFrame:self.fixture.list.view.bounds collectionViewLayout:[HGFixtureLayout new]];
+            [self.fixture.list.view addSubview:detail];
+            HGWritePreference(@"tab.layout.enabled", @YES); HGWritePreference(@"tab.appearance.height", @62); [bar layoutSubviews];
+            HGCheck(closeTo(detail.bounds.size.height, self.window.bounds.size.height), @"Full-height episode playback was resized by home adaptation");
+            HGWritePreference(@"tab.layout.enabled", @NO); [bar layoutSubviews]; [detail removeFromSuperview];
+            HGWritePreference(@"tab.appearance.height", @84); [self.fixture.collection layoutIfNeeded];
             HGWritePreference(@"right.scale", scales[0]);
         } else if (self.phase <= scales.count) {
             double expected = [scales[self.phase - 1] doubleValue];

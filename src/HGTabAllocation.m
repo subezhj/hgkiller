@@ -210,6 +210,14 @@ void HGInstallTabAllocation(void) {
             return rect;
         };
     });
+    SEL frameGetter = @selector(frame);
+    HGInstall(NSClassFromString(@"FQVCollectionView"), frameGetter, ^id(IMP original) {
+        return ^CGRect(UIView *view) {
+            HGAllocation *state = objc_getAssociatedObject(view, &HGAllocationKey);
+            if (HGSourceLayoutDepth && state.active) return state.source;
+            return ((CGRect (*)(id, SEL))original)(view, frameGetter);
+        };
+    });
     HGHookLayout(@"FQVShortVideoCell", ^(UIView *cell) { HGAllocationCell(cell); });
     HGHookLayout(@"FQVCollectionView", ^(UIView *view) {
         for (UICollectionViewCell *cell in ((UICollectionView *)view).visibleCells) HGAllocationCell(cell);
