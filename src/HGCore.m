@@ -64,16 +64,12 @@ void HGClearSafetyRecord(void) {
 NSString *HGSafetyReason(void) {
     return [NSUserDefaults.standardUserDefaults stringForKey:[HGPreferencePrefix stringByAppendingString:@"safety.lastReason"]] ?: @"";
 }
-static BOOL HGObserveLayout(id object, SEL selector) { return YES; } // Temporarily disabled at user request.
+static BOOL HGObserveLayout(id object, SEL selector) { HGRecordHeightLayout(object, selector); return YES; } // Records only; protection remains disabled.
 
 void HGInitializePreferences(void) {
-    // Do not silently reactivate a saved v0.1.15 switch on the first experimental upgrade.
+    // Every diagnostic launch starts off so a prior hang does not prevent reading its record.
     NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
-    NSString *revision = [HGPreferencePrefix stringByAppendingString:@"tab.layout.experimentalRevision"];
-    if (![[defaults stringForKey:revision] isEqualToString:@"0.1.17"]) {
-        [defaults setBool:NO forKey:[HGPreferencePrefix stringByAppendingString:@"tab.layout.enabled"]];
-        [defaults setObject:@"0.1.17" forKey:revision];
-    }
+    [defaults setBool:NO forKey:[HGPreferencePrefix stringByAppendingString:@"tab.layout.enabled"]];
     HGReloadPreferences();
 }
 BOOL HGEnabled(void) { return !HGSafetyTripped && [HGPreferences[@"enabled"] boolValue]; }
@@ -87,6 +83,7 @@ void HGWritePreference(NSString *key, id value) {
     }
     [NSUserDefaults.standardUserDefaults setObject:value forKey:[HGPreferencePrefix stringByAppendingString:key]];
     HGReloadPreferences();
+    if ([key isEqualToString:@"tab.layout.enabled"] && [value boolValue]) HGHeightBeginAttempt();
     HGRefreshViews();
 }
 void HGResetPreferences(void) {

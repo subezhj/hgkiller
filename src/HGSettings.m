@@ -105,7 +105,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         @[
             @{@"key": @"tab.textScale", @"title": @"底栏文字大小", @"slider": @YES, @"min": @0.55, @"max": @1.2},
             @{@"key": @"tab.appearance.enabled", @"title": @"深色模糊背景"},
-            @{@"key": @"tab.layout.enabled", @"title": @"实际高度调整（实验）"},
+            @{@"key": @"tab.layout.enabled", @"title": @"实际高度调整（仅底栏诊断）"},
             @{@"key": @"tab.appearance.height", @"title": @"底栏高度", @"slider": @YES, @"unit": @"pt", @"min": @62, @"max": @84},
 
         ],
@@ -118,7 +118,8 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
           @{@"key": @"caption.descriptionScale", @"title": @"集数、简介与展开文字大小", @"slider": @YES}],
         @[@{@"title": @"恢复默认设置", @"action": @"reset"},
           @{@"title": @"适配信息", @"action": @"diagnostics"},
-          @{@"title": @"清除上次保护记录", @"action": @"clearSafety"}]
+          @{@"title": @"清除上次保护记录", @"action": @"clearSafety"},
+          @{@"title": @"高度诊断记录", @"action": @"heightLog"}]
     ];
 }
 @implementation HGSettingsController
@@ -141,10 +142,10 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
     switch (section) {
         case 0: return @"关闭后恢复 hgkiller 调整的布局。本版本暂时停用布局保护。";
         case 1: return @"关闭某项后自动收紧排列；大小 55%–100%，间距 0–24 pt。首次显示与后续布局统一应用。";
-        case 2: return @"实际高度调整为实验功能，默认关闭。开启后调整底栏与首页播放区域，包含底部安全区。此前真机出现过卡住，尚未确认根因。关闭时模糊覆盖完整原生底栏。";
+        case 2: return @"诊断版只调整底栏，不扩展视频，不改分页或播放器；原播放占位仍保留，可能有空隙。每次启动默认关闭，方便卡住后重启查看诊断。记录不会自动停用功能。";
         case 3: return @"调整首页顶部分类与搜索文字，保留原来的入口。";
         case 4: return @"剧名与集数、简介、展开分别调整为原字号的 55%–100%。默认原字号，不修改文案容器位置。";
-        default: return @"hgkiller 0.1.17 · 红果短剧 7.3.9 适配";
+        default: return @"hgkiller 0.1.18 · 红果短剧 7.3.9 适配";
     }
 }
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)path {
@@ -206,6 +207,22 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
     [tableView deselectRowAtIndexPath:path animated:YES];
     NSString *action = HGRows()[path.section][path.row][@"action"];
     if (!action) return;
+    if ([action isEqualToString:@"heightLog"]) {
+        UIViewController *detail = [UIViewController new]; detail.title = @"高度诊断记录";
+        UITextView *text = [[UITextView alloc] initWithFrame:detail.view.bounds];
+        text.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        text.editable = NO; text.selectable = YES; text.alwaysBounceVertical = YES;
+        text.backgroundColor = UIColor.systemBackgroundColor;
+        text.font = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightRegular];
+        text.textContainerInset = UIEdgeInsetsMake(16, 16, 16, 16); text.text = HGHeightDiagnosticText();
+        [detail.view addSubview:text];
+        if (self.navigationController) [self.navigationController pushViewController:detail animated:YES];
+        else {
+            detail.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(close)];
+            [self presentViewController:[[UINavigationController alloc] initWithRootViewController:detail] animated:YES completion:nil];
+        }
+        return;
+    }
     if ([action isEqualToString:@"clearSafety"]) { HGClearSafetyRecord(); return; }
     if ([action isEqualToString:@"reset"]) {
         UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"恢复默认设置"
@@ -227,7 +244,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         message = [message stringByAppendingFormat:@"\n\n当前状态：%@\n布局保护：暂时停用", HGSettingsState()];
         message = [message stringByAppendingFormat:@"\n实际高度调整：%@\n设置高度：%.0f pt", HGBool(@"tab.layout.enabled") ? @"开启" : @"关闭", HGNumber(@"tab.appearance.height")];
         if (HGSafetyReason().length) message = [message stringByAppendingFormat:@"\n\n上次保护记录（历史）：%@", HGSafetyReason()];
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.17"
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.18"
                                                                       message:message preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:alert animated:YES completion:nil];

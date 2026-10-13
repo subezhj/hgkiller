@@ -10,7 +10,7 @@ void HGInstallFeatures(void) {
     HGInstallCaption();
     HGInstallTabAllocation();
     HGInstallTabAppearance();
-    // Allocation and native paging adaptation are opt-in experimental features.
+    // Isolation: native viewport, paging and renderer geometry remain untouched.
 }
 
 

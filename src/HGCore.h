@@ -32,3 +32,6 @@ FOUNDATION_EXPORT NSString *HGSafetyReason(void);
 FOUNDATION_EXPORT BOOL HGSafetyPaused(void);
 FOUNDATION_EXPORT void HGClearSafetyRecord(void);
 FOUNDATION_EXPORT NSString *const HGPreferencesDidChangeNotification;
+FOUNDATION_EXPORT void HGHeightBeginAttempt(void);
+FOUNDATION_EXPORT void HGRecordHeightLayout(id object, SEL selector);
+FOUNDATION_EXPORT NSString *HGHeightDiagnosticText(void);
