@@ -73,6 +73,10 @@ static void HGWriteProgress(NSInteger phase) {
     }
     return result;
 }
+- (CGPoint)targetContentOffsetForProposedContentOffset:(CGPoint)offset withScrollingVelocity:(CGPoint)velocity {
+    offset.y = round(offset.y / self.collectionView.frame.size.height) * self.collectionView.frame.size.height;
+    return offset;
+}
 @end
 
 @interface SSTabBarTextButton : UIControl
@@ -510,6 +514,12 @@ static UIView *HGFixtureDramaContainer;
             }
             NSArray *visible = [layout layoutAttributesForElementsInRect:CGRectMake(0, targetPage + 1, 402, targetPage - 2)];
             HGCheck(visible.count == 1 && closeTo(((UICollectionViewLayoutAttributes *)visible.firstObject).frame.origin.y, targetPage), @"Element query was not mapped to source page coordinates");
+            CGPoint snap = [layout targetContentOffsetForProposedContentOffset:CGPointMake(0, targetPage * 1.1) withScrollingVelocity:CGPointMake(0, 1)];
+            HGCheck(closeTo(snap.y, targetPage), @"Native layout snap returned the old page stride");
+            SSTabBar *coldTab = [[SSTabBar alloc] initWithFrame:CGRectMake(0, self.window.bounds.size.height - 84, 402, 84)];
+            [self.fixture.view addSubview:coldTab]; [coldTab layoutSubviews];
+            HGCheck(closeTo(coldTab.bounds.size.height, 62), @"First appearance ignored persisted height setting");
+            [coldTab removeFromSuperview];
             HGCheck(closeTo(HGProjectedPlayer.bounds.size.height, targetPage), @"Player did not follow reclaimed cell geometry");
             HGCheck(CATransform3DIsIdentity(self.fixture.collection.layer.sublayerTransform), @"Reclaimed viewport used layer projection");
             [self.fixture.collection setContentOffset:CGPointMake(0, targetPage) animated:NO];

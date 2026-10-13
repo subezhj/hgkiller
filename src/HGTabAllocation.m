@@ -177,6 +177,31 @@ static void HGAllocationLayoutHooks(UICollectionViewLayout *layout) {
             return result;
         };
     });
+    SEL snap = @selector(targetContentOffsetForProposedContentOffset:withScrollingVelocity:);
+    HGInstall(cls, snap, ^id(IMP original) {
+        return ^CGPoint(UICollectionViewLayout *object, CGPoint point, CGPoint velocity) {
+            HGAllocation *state = HGLayoutState(object); BOOL nested = HGSourceLayoutDepth > 0;
+            CGFloat scale = state && !nested ? state.applied.size.height / state.source.size.height : 1;
+            point.y /= scale; velocity.y /= scale;
+            CGPoint value;
+            if (state) HGSourceLayoutDepth++;
+            @try { value = ((CGPoint (*)(id, SEL, CGPoint, CGPoint))original)(object, snap, point, velocity); }
+            @finally { if (state) HGSourceLayoutDepth--; }
+            value.y *= scale; return value;
+        };
+    });
+    SEL resting = @selector(targetContentOffsetForProposedContentOffset:);
+    HGInstall(cls, resting, ^id(IMP original) {
+        return ^CGPoint(UICollectionViewLayout *object, CGPoint point) {
+            HGAllocation *state = HGLayoutState(object); BOOL nested = HGSourceLayoutDepth > 0;
+            CGFloat scale = state && !nested ? state.applied.size.height / state.source.size.height : 1;
+            point.y /= scale; CGPoint value;
+            if (state) HGSourceLayoutDepth++;
+            @try { value = ((CGPoint (*)(id, SEL, CGPoint))original)(object, resting, point); }
+            @finally { if (state) HGSourceLayoutDepth--; }
+            value.y *= scale; return value;
+        };
+    });
 }
 void HGInstallTabAllocation(void) {
     for (NSString *name in @[@"SSTabBar", @"FQVCollectionView"]) {
