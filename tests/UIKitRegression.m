@@ -477,7 +477,7 @@ static UIView *HGFixtureDramaContainer;
             HGCheck(method_getImplementation(class_getInstanceMethod(HGFixtureLayout.class, @selector(collectionViewContentSize))) == HGSizeBeforeLoad, @"Native content size was hooked");
             HGWritePreference(@"video.extend", @YES);
             HGCheck(!HGBool(@"video.extend"), @"Saved fullscreen setting bypassed hotfix isolation");
-            UIView *bar = self.fixture.bar;
+            SSTabBar *bar = self.fixture.bar;
             SSTabBarTextButton *first = self.fixture.bar.buttons.firstObject;
             first.label.font = [UIFont systemFontOfSize:20];
             HGWritePreference(@"tab.textScale", @0.7); [first layoutSubviews];
@@ -583,6 +583,7 @@ static void HGRecordNativeMethods(void) {
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
+
 
 
 
