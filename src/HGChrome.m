@@ -119,11 +119,11 @@ static void HGScaleHeaderFonts(UIView *root) {
             objc_setAssociatedObject(label, &HGFontStateKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         }
         if (state) {
-            if (!state.applied || ![label.font isEqual:state.applied]) state.host = label.font;
+            if (!state.hostText && (!state.applied || ![label.font isEqual:state.applied])) state.host = label.font;
             UIFont *font = active ? [state.host fontWithSize:MAX(10, state.host.pointSize * HGNumber(@"top.scale"))] : state.host;
-            if (![label.font isEqual:font]) HGApply(^{ label.font = font; });
+            if (!state.hostText && ![label.font isEqual:font]) HGApply(^{ label.font = font; });
             state.applied = active ? font : nil;
-            NSAttributedString *text = HGHeaderText(state, label.attributedText, active);
+            NSAttributedString *text = state.hostText ? HGHeaderText(state, label.attributedText, active) : nil;
             if (text && ![text isEqualToAttributedString:label.attributedText]) HGApply(^{ label.attributedText = text; });
         }
     }
@@ -193,6 +193,7 @@ void HGInstallChrome(void) {
     HGHookLayout(@"SSVideoSeriesFeedHeaderView", ^(UIView *view) { HGScaleHeaderFonts(view); });
     HGHookLayout(@"FQRJXCategoryCollectionView", ^(UIView *view) { if (HGInHeader(view)) HGScaleHeaderFonts(view); });
 }
+
 
 
 
