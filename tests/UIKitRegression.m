@@ -8,12 +8,14 @@ static BOOL HGDidTripSafety;
 static UIView *HGProjectedPlayer, *HGProjectedControls;
 static UILabel *HGProjectedTitle;
 static UIView *HGReclaimedEntry;
+static BOOL HGHostCachesCellHeight;
+static NSUInteger HGNativeCellRejections;
 static IMP HGFeedFrameBeforeLoad, HGPlayerFrameBeforeLoad, HGItemBeforeLoad, HGSizeBeforeLoad, HGButtonFrameBeforeLoad, HGTabFrameOriginal, HGTabLayoutOriginal;
 static void HGFinish(NSString *error) {
     NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject
                       stringByAppendingPathComponent:@"hg-results.json"];
     NSDictionary *result = @{@"success": @(!error), @"checks": @(HGChecks),
-                             @"tabLayoutPasses": @(HGBarPasses), @"rightLayoutPasses": @(HGRightPasses),
+                             @"tabLayoutPasses": @(HGBarPasses), @"rightLayoutPasses": @(HGRightPasses), @"nativeCellRejections": @(HGNativeCellRejections),
                              @"error": error ?: @"", @"steadyRightLayoutPasses": @(HGSteadyRightPasses), @"safetyTripped": @(HGDidTripSafety), @"recoveredEnabled": @(HGEnabled()), @"currentSafetyPaused": @(HGSafetyPaused()), @"buttonLayoutPasses": @(HGButtonPasses), @"steadyButtonLayoutPasses": @(HGSteadyButtonPasses)};
     [[NSJSONSerialization dataWithJSONObject:result options:NSJSONWritingPrettyPrinted error:nil] writeToFile:path atomically:YES];
 }
@@ -52,7 +54,21 @@ static void HGWriteProgress(NSInteger phase) {
 @interface FQVCollectionView : UICollectionView @end
 @implementation FQVCollectionView @end
 @interface FQVShortVideoCell : UICollectionViewCell @end
-@implementation FQVShortVideoCell @end
+@implementation FQVShortVideoCell
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    if (!HGHostCachesCellHeight) return;
+    // Model a host whose video model retains its captured 784 pt page geometry.
+    BOOL rejected = !closeTo(self.contentView.bounds.size.height, 784);
+    if (rejected) HGNativeCellRejections++;
+    if (rejected && HGNativeCellRejections < 5) [self setNeedsLayout];
+    self.contentView.frame = CGRectMake(0, 0, self.bounds.size.width, 784);
+    for (UIView *child in self.contentView.subviews) {
+        if (HGIsClass(child, @"FQVPlayer") || HGIsClass(child, @"FQVShortVideoVPlayerOutterMultiSeriesControlView"))
+            child.frame = CGRectMake(0, 0, self.bounds.size.width, 784);
+    }
+}
+@end
 @interface FQVShortVideoVPlayerOutterMultiSeriesControlView : UIView @end
 @implementation FQVShortVideoVPlayerOutterMultiSeriesControlView @end
 @interface FQVPlayer : UIView @end
@@ -531,6 +547,11 @@ static UIView *HGFixtureDramaContainer;
             HGCheck(closeTo(CGRectGetMaxY(HGReclaimedEntry.frame), targetPage), @"Episode entry left a gap before the reclaimed tab");
             HGCheck(closeTo(HGProjectedTitle.frame.origin.y, 645), @"Reclaimed viewport moved the fixed drama title");
             HGCheck(CATransform3DIsIdentity(self.fixture.collection.layer.sublayerTransform), @"Reclaimed viewport used layer projection");
+            HGHostCachesCellHeight = YES; HGNativeCellRejections = 0;
+            UICollectionViewCell *cachedCell = self.fixture.collection.visibleCells.firstObject;
+            for (NSUInteger pass = 0; pass < 5; pass++) [cachedCell layoutSubviews];
+            HGHostCachesCellHeight = NO;
+            HGCheck(HGNativeCellRejections == 0, @"Cached native cell height is rejected repeatedly while allocation rewrites content geometry");
             [self.fixture.collection setContentOffset:CGPointMake(0, targetPage) animated:NO];
             HGWritePreference(@"tab.appearance.height", @70); [bar layoutSubviews];
             HGCheck(closeTo(self.fixture.collection.contentOffset.y, self.window.bounds.size.height - 70), @"Resizing jumped to a different episode");
