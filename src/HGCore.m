@@ -21,7 +21,7 @@ static NSDictionary *HGDefaults(void) {
         @"right.avatar": @YES, @"right.collect": @YES,
         @"right.comment": @YES, @"right.like": @YES, @"right.share": @YES,
         @"right.scale": @0.80, @"right.gap": @6.0,
-        @"tab.textScale": @1.0, @"video.extend": @NO,
+        @"tab.textScale": @1.0, @"tab.appearance.enabled": @NO, @"tab.appearance.height": @84.0, @"video.extend": @NO,
         @"video.fillPortrait": @NO,
         @"caption.enabled": @YES, @"caption.titleScale": @1.0, @"caption.descriptionScale": @1.0,
         @"top.enabled": @YES, @"top.scale": @0.85
@@ -37,6 +37,8 @@ static void HGReloadPreferences(void) {
         double value = [values[key] doubleValue];
         values[key] = @(isfinite(value) ? MAX(0.55, MIN(1.0, value)) : [HGDefaults()[key] doubleValue]);
     }
+    double appearanceHeight = [values[@"tab.appearance.height"] doubleValue];
+    values[@"tab.appearance.height"] = @(isfinite(appearanceHeight) ? MAX(62, MIN(84, appearanceHeight)) : 84);
     double gap = [values[@"right.gap"] doubleValue]; values[@"right.gap"] = @(isfinite(gap) ? MAX(0, MIN(24, gap)) : 6);
     double text = [values[@"tab.textScale"] doubleValue]; values[@"tab.textScale"] = @(isfinite(text) ? MAX(0.55, MIN(1.2, text)) : 1);
     // Do not honor old saved fullscreen values in this hotfix; the corresponding hooks are absent.
@@ -194,7 +196,7 @@ void HGHookFrame(NSString *name, CGRect (^adjust)(UIView *, CGRect)) {
     });
 }
 static void HGMarkTargets(UIView *view) {
-    for (NSString *name in @[@"SSShortVideoRightInteractionView", @"SSTabBarTextButton",
+    for (NSString *name in @[@"SSShortVideoRightInteractionView", @"SSTabBar", @"SSTabBarTextButton",
                             @"SSVideoSeriesFeedHeaderView", @"SSShortVideoOutterSeriesLeftContainerView", @"SSShortVideoSingleSeriesInfoLeftContainerView",
                             @"SSShortVideoBottomDistributionView"]) {
         if (HGIsClass(view, name)) { [view setNeedsLayout]; break; }
@@ -234,6 +236,7 @@ NSArray<NSString *> *HGMissingClasses(void) {
     }
     return missing;
 }
+
 
 
 

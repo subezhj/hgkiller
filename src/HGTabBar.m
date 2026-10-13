@@ -1,4 +1,5 @@
 #import "HGCore.h"
+extern void HGTabAppearanceCaption(UIView *button);
 static char HGTabFontKey;
 @interface HGTabFontState : NSObject
 @property(nonatomic, strong) UIFont *host;
@@ -37,5 +38,6 @@ BOOL HGHandleTabFont(UILabel *label, UIFont *font, void (^apply)(UIFont *)) {
 }
 void HGInstallTabBar(void) {
     // Font only. No tab frame/layout, controller placement, background, hit-test or lifecycle hooks.
-    HGHookLayout(@"SSTabBarTextButton", ^(UIView *button) { HGTabFonts(button, HGTabActive(button)); });
+    HGHookLayout(@"SSTabBarTextButton", ^(UIView *button) { HGTabFonts(button, HGTabActive(button)); HGTabAppearanceCaption(button); });
 }
+

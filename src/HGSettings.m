@@ -104,6 +104,8 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         ],
         @[
             @{@"key": @"tab.textScale", @"title": @"底栏文字大小", @"slider": @YES, @"min": @0.55, @"max": @1.2},
+            @{@"key": @"tab.appearance.enabled", @"title": @"深色模糊背景"},
+            @{@"key": @"tab.appearance.height", @"title": @"模糊背景可见高度", @"slider": @YES, @"unit": @"pt", @"min": @62, @"max": @84},
 
         ],
         @[
@@ -138,7 +140,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
     switch (section) {
         case 0: return @"关闭后恢复 hgkiller 调整的布局。本版本暂时停用布局保护。";
         case 1: return @"关闭某项后自动收紧排列；大小 55%–100%，间距 0–24 pt。首次显示与后续布局统一应用。";
-        case 2: return @"调整整块灰色底栏高度，包含底部安全区。底栏高度修改已停用，位置、背景与布局完全由红果管理。这里只调整底栏文字大小，旧高度设置不再生效。";
+        case 2: return @"调整整块灰色底栏高度，包含底部安全区。只调模糊背景的可见高度，包含安全区。原生底栏占位不变，缩小后上方显示黑色，不扩展视频、不移动文案。";
         case 3: return @"调整首页顶部分类与搜索文字，保留原来的入口。";
         default: return @"hgkiller 0.1.14 · 红果短剧 7.3.9 适配";
     }
@@ -266,6 +268,7 @@ void HGInstallSettings(void) {
         };
     });
 }
+
 
 
 

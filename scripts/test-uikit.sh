@@ -7,7 +7,7 @@ SIM_ARCH="$(uname -m)"
 xcrun --sdk iphonesimulator clang \
   -target "$SIM_ARCH-apple-ios14.0-simulator" -isysroot "$SIM_SDK" \
   -fobjc-arc -fblocks -O1 -Wall -Wextra -Wno-unused-parameter -Wno-deprecated-declarations \
-  -I src src/HGCore.m src/HGChrome.m src/HGCaption.m src/HGLayout.m src/HGTabBar.m \
+  -I src src/HGCore.m src/HGChrome.m src/HGCaption.m src/HGLayout.m src/HGTabBar.m src/HGTabAppearance.m \
   src/HGSettings.m src/HGEntry.m tests/UIKitRegression.m \
   -framework UIKit -framework Foundation -framework QuartzCore -framework CoreGraphics \
   -o build/HGUIKitRegression.app/HGUIKitRegression
