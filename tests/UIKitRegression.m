@@ -7,7 +7,7 @@ static NSUInteger HGBarPasses, HGRightPasses, HGChecks, HGSteadyRightPasses, HGB
 static BOOL HGDidTripSafety;
 static UIView *HGProjectedPlayer, *HGProjectedControls;
 static UILabel *HGProjectedTitle;
-static IMP HGFeedFrameBeforeLoad, HGPlayerFrameBeforeLoad, HGItemBeforeLoad, HGSizeBeforeLoad, HGButtonFrameBeforeLoad;
+static IMP HGFeedFrameBeforeLoad, HGPlayerFrameBeforeLoad, HGItemBeforeLoad, HGSizeBeforeLoad, HGButtonFrameBeforeLoad, HGTabFrameOriginal, HGTabLayoutOriginal;
 static void HGFinish(NSString *error) {
     NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject
                       stringByAppendingPathComponent:@"hg-results.json"];
@@ -245,7 +245,7 @@ static UIView *HGFixtureDramaContainer;
     return cell;
 }
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
-    HGResetPreferences(); HGWritePreference(@"tab.backgroundHeight", @66);
+    HGResetPreferences(); [NSUserDefaults.standardUserDefaults setDouble:66 forKey:[HGPreferencePrefix stringByAppendingString:@"tab.backgroundHeight"]];
     self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
     SSRootViewController *root = [SSRootViewController new];
     self.window.rootViewController = root;
@@ -298,37 +298,21 @@ static UIView *HGFixtureDramaContainer;
 - (void)checkTabHeight:(CGFloat)height {
     SSTabBar *bar = self.fixture.bar;
     [self.fixture.collection layoutSubviews];
-    CGFloat safe = MIN(self.window.safeAreaInsets.bottom, 84);
-    CGFloat expected = MIN(84 - safe, height) + safe;
-    HGCheck(closeTo(bar.bounds.size.height, expected), @"Native tab configured height not applied");
-    HGCheck(closeTo(bar.frame.origin.x, 0) && closeTo(bar.bounds.size.width, self.window.bounds.size.width), @"Native tab still floating or inset");
-    HGCheck(closeTo(CGRectGetMaxY(bar.frame), self.window.bounds.size.height), @"Tab no longer bottom aligned");
-    HGCheck(CGRectGetMaxY(bar.frame) <= self.window.bounds.size.height + 0.1, @"Tab escaped bottom reserved area");
-    HGCheck(bar.frame.origin.y >= 784 - 0.1, @"Tab invaded video/caption reserved region");
-    HGCheck(!bar.oldBlur.hidden && !bar.oldImage.hidden, @"Native background was removed");
-    NSUInteger mats = 0;
-    for (CALayer *layer in bar.layer.superlayer.sublayers) if ([layer.name isEqualToString:@"HGK.nativeTabUnderlay"]) {
-        mats++;
-        HGCheck(rectClose(layer.frame, CGRectMake(0, self.window.bounds.size.height - 84, self.window.bounds.size.width, 84)), @"Black underlay escaped native strip");
-        HGCheck(CGColorEqualToColor(layer.backgroundColor, UIColor.blackColor.CGColor), @"Exposed strip remained gray");
-    }
-    for (CALayer *layer in bar.layer.superlayer.sublayers) if ([layer.name isEqualToString:@"HGK.nativeTabUnderlay"]) {
-        bar.hidden = YES; HGCheck(layer.hidden, @"Hidden tab left black underlay over playback");
-        bar.hidden = NO; HGCheck(!layer.hidden, @"Underlay failed to follow visible tab");
-        bar.alpha = 0; HGCheck(layer.hidden, @"Transparent tab left underlay behind");
-        bar.alpha = 1; HGCheck(!layer.hidden, @"Underlay failed to restore opacity visibility");
-    }
-    HGCheck(mats == 1, @"Gray height underlay missing or duplicated");
+    HGCheck(rectClose(bar.frame, CGRectMake(0, self.window.bounds.size.height - 84, self.window.bounds.size.width, 84)), @"Legacy height setting still changes native tab frame");
+    HGCheck(!bar.oldBlur.hidden && !bar.oldImage.hidden, @"Native background changed");
+    HGCheck(method_getImplementation(class_getInstanceMethod(SSTabBar.class, @selector(setFrame:))) == HGTabFrameOriginal, @"Tab frame hook remains installed");
+    HGCheck(method_getImplementation(class_getInstanceMethod(SSTabBar.class, @selector(layoutSubviews))) == HGTabLayoutOriginal, @"Tab layout hook remains installed");
+    for (CALayer *layer in bar.layer.superlayer.sublayers) HGCheck(![layer.name isEqualToString:@"HGK.nativeTabUnderlay"], @"Black tab underlay still installed");
     HGCheck(bar.subviews.count == 3, @"Plugin inserted a floating blur background");
     HGCheck(closeTo(bar.row.bounds.size.width, 402), @"Plugin changed native row bounds");
     for (NSUInteger index = 0; index < 3; index++) {
         SSTabBarTextButton *button = bar.buttons[index];
-        HGRect slot = { index * 135.3333, 0, 131.3333, MIN(84 - safe, height) };
+        HGRect slot = { index * 135.3333, 0, 131.3333, 49.6667 };
         HGCheck(closeTo(button.frame.origin.x, index * 135.3333) && closeTo(button.bounds.size.width, 131.3333), @"Plugin changed native button frame");
         HGCheck(rectClose(button.caption.frame, CGRectMake(49.6667, 13.6667, 32, 22.6667)), @"Plugin changed constrained caption frame");
         CATransform3D t = button.layer.sublayerTransform;
         CGPoint visual = [bar convertPoint:CGPointMake(button.caption.center.x + t.m41, button.caption.center.y + t.m42) fromView:button];
-        HGCheck(closeTo(visual.x, slot.x + 65.6667) && closeTo(visual.y, slot.height / 2), @"Tab pixels not centered");
+        HGCheck(closeTo(visual.x, slot.x + 65.6667) && closeTo(visual.y, button.caption.center.y) && CATransform3DIsIdentity(t), @"Tab pixels not centered");
         for (NSUInteger edge = 0; edge < 3; edge++) {
             CGFloat x = edge == 0 ? slot.x + 1 : edge == 1 ? slot.x + slot.width / 2 : slot.x + slot.width - 1;
             CGPoint p = CGPointMake(x, slot.height / 2);
@@ -385,7 +369,7 @@ static UIView *HGFixtureDramaContainer;
     @try {
         NSArray *scales = @[@0.55, @0.80, @1.0, @0.55, @0.80];
         if (self.phase == 0) {
-            HGCheck(closeTo(self.fixture.bar.bounds.size.height, 66), @"Cold launch ignored saved gray tab height");
+            HGCheck(closeTo(self.fixture.bar.bounds.size.height, 84), @"Old cold-start height setting remained active");
             HGCheck(closeTo(CGRectGetMaxY(self.fixture.bar.frame), self.window.bounds.size.height), @"Cold launch needed navigation to align tab");
             HGResetPreferences(); [self.fixture.bar layoutSubviews];
             for (UIView *item in self.fixture.right.items) HGCheck(closeTo(item.transform.a, 0.8), @"Cold launch scaled only one interaction");
@@ -527,6 +511,8 @@ static UIView *HGFixtureDramaContainer;
 @end
 __attribute__((constructor))
 static void HGRecordNativeMethods(void) {
+    HGTabFrameOriginal = method_getImplementation(class_getInstanceMethod(SSTabBar.class, @selector(setFrame:)));
+    HGTabLayoutOriginal = method_getImplementation(class_getInstanceMethod(SSTabBar.class, @selector(layoutSubviews)));
     HGButtonFrameBeforeLoad = method_getImplementation(class_getInstanceMethod(SSTabBarTextButton.class, @selector(setFrame:)));
     HGFeedFrameBeforeLoad = method_getImplementation(class_getInstanceMethod(FQVCollectionView.class, @selector(setFrame:)));
     HGPlayerFrameBeforeLoad = method_getImplementation(class_getInstanceMethod(FQVPlayer.class, @selector(setFrame:)));
@@ -536,6 +522,7 @@ static void HGRecordNativeMethods(void) {
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
+
 
 
 
