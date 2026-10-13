@@ -198,6 +198,11 @@ static void HGCleanBottom(UIView *view) {
     BOOL active = HGEnabled() && HGPlaybackBottom(view);
     HGDistributionStyle(view, 4, active);
     if (HGIsClass(view.superview, @"FQVShortVideoBaseInsertView")) HGDecoration(view.superview, active, NO);
+    // Empty space below the native video viewport can expose the controller canvas.
+    for (UIView *node = view.superview; node && ![node isKindOfClass:UIWindow.class]; node = node.superview) {
+        if ([node.nextResponder isKindOfClass:UIViewController.class]) HGDecoration(node, active, NO);
+        if (HGIsClass(node.nextResponder, @"SSTabBarController")) break;
+    }
 }
 static void HGTrackBottom(UIView *view) {
     if (!HGBottomViews) HGBottomViews = [NSHashTable weakObjectsHashTable];
@@ -252,4 +257,5 @@ void HGInstallTabBar(void) {
         }
     });
 }
+
 

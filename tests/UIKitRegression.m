@@ -242,6 +242,7 @@ static UILabel *HGFixtureBottomLabel;
     fixture.bar = [[SSTabBar alloc] initWithFrame:CGRectMake(0, 790, 402, 84)];
     [fixture.view addSubview:fixture.bar];
     for (SSTabBarTextButton *button in fixture.bar.buttons) [button addTarget:fixture action:@selector(tapped:) forControlEvents:UIControlEventTouchUpInside];
+    fixture.view.backgroundColor = UIColor.grayColor; fixture.list.view.backgroundColor = UIColor.grayColor;
     HGFixtureBottomParent = [[FQVShortVideoBaseInsertView alloc] initWithFrame:CGRectMake(0, 740, 402, 44)];
     HGFixtureBottomParent.backgroundColor = UIColor.grayColor;
     [fixture.list.view addSubview:HGFixtureBottomParent];
@@ -357,6 +358,7 @@ static UILabel *HGFixtureBottomLabel;
             [detail.view removeFromSuperview]; [detail removeFromParentViewController];
             HGCheck(HGFixtureBottomImage.hidden && HGFixtureBottomBlur.hidden, @"Nested bottom image or material remained visible");
             HGCheck([HGFixtureBottom.backgroundColor isEqual:UIColor.clearColor] && [HGFixtureBottomParent.backgroundColor isEqual:UIColor.clearColor], @"Bottom parent paint remained gray");
+            HGCheck([self.fixture.view.backgroundColor isEqual:UIColor.clearColor] && [self.fixture.list.view.backgroundColor isEqual:UIColor.clearColor], @"Controller canvas below viewport remained gray");
             HGCheck(!HGFixtureIcon.hidden && !HGFixtureBottomLabel.hidden, @"Bottom cleanup removed navigation content");
             [self checkTabHeight:54];
             [self checkSettingsState:@"正在运行"]; [self checkSliderMargins];
@@ -410,6 +412,7 @@ static UILabel *HGFixtureBottomLabel;
             HGCheck(closeTo(self.fixture.collection.bounds.size.height, self.fixture.list.view.bounds.size.height - 90), @"Feed viewport did not restore");
             for (UIView *item in self.fixture.right.items) HGCheck(CATransform3DIsIdentity(item.layer.sublayerTransform), @"Right visual scale did not restore");
             HGCheck(!HGFixtureBottomImage.hidden && !HGFixtureBottomBlur.hidden, @"Bottom materials failed to restore when disabled");
+            HGCheck([self.fixture.list.view.backgroundColor isEqual:UIColor.grayColor], @"Playback canvas did not restore");
             HGCheck([HGFixtureBottomParent.backgroundColor isEqual:UIColor.grayColor], @"Bottom parent color failed to restore");
             [self checkSettingsState:@"已关闭"];
             HGSteadyRightPasses = HGRightPasses; HGSteadyButtonPasses = HGButtonPasses;
@@ -444,6 +447,7 @@ static void HGRecordNativeMethods(void) {
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
+
 
 
 
