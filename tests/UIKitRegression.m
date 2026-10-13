@@ -525,11 +525,11 @@ static UIView *HGFixtureDramaContainer;
             HGWritePreference(@"tab.appearance.height", @84); [bar layoutSubviews];
             [self checkTabHeight:50];
             // A full-height collection under the same feed must stay outside home tab adaptation.
-            FQVCollectionView *detail = [[FQVCollectionView alloc] initWithFrame:self.fixture.list.view.bounds collectionViewLayout:[HGFixtureLayout new]];
-            [self.fixture.list.view addSubview:detail];
+            FQVCollectionView *detailCollection = [[FQVCollectionView alloc] initWithFrame:self.fixture.list.view.bounds collectionViewLayout:[HGFixtureLayout new]];
+            [self.fixture.list.view addSubview:detailCollection];
             HGWritePreference(@"tab.layout.enabled", @YES); HGWritePreference(@"tab.appearance.height", @62); [bar layoutSubviews];
-            HGCheck(closeTo(detail.bounds.size.height, self.window.bounds.size.height), @"Full-height episode playback was resized by home adaptation");
-            HGWritePreference(@"tab.layout.enabled", @NO); [bar layoutSubviews]; [detail removeFromSuperview];
+            HGCheck(closeTo(detailCollection.bounds.size.height, self.window.bounds.size.height), @"Full-height episode playback was resized by home adaptation");
+            HGWritePreference(@"tab.layout.enabled", @NO); [bar layoutSubviews]; [detailCollection removeFromSuperview];
             HGWritePreference(@"tab.appearance.height", @84); [self.fixture.collection layoutIfNeeded];
             HGWritePreference(@"right.scale", scales[0]);
         } else if (self.phase <= scales.count) {
