@@ -137,7 +137,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         case 1: return @"关闭某项后自动收紧排列；大小 55%–100%，间距 0–24 pt。首次显示与后续布局统一应用。";
         case 2: return @"调整整块灰色底栏高度，包含底部安全区。底栏高度修改已停用，位置、背景与布局完全由红果管理。这里只调整底栏文字大小，旧高度设置不再生效。";
         case 3: return @"调整首页顶部分类与搜索文字，保留原来的入口。";
-        default: return @"hgkiller 0.1.12 · 红果短剧 7.3.9 适配";
+        default: return @"hgkiller 0.1.13 · 红果短剧 7.3.9 适配";
     }
 }
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)path {
@@ -219,7 +219,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
                                                           : @"目标类已加载。\n实际布局仍需真机验证。"];
         message = [message stringByAppendingFormat:@"\n\n当前状态：%@\n布局保护：暂时停用", HGSettingsState()];
         if (HGSafetyReason().length) message = [message stringByAppendingFormat:@"\n\n上次保护记录（历史）：%@", HGSafetyReason()];
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.12"
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.13"
                                                                       message:message preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:alert animated:YES completion:nil];
@@ -263,6 +263,7 @@ void HGInstallSettings(void) {
         };
     });
 }
+
 
 
 

@@ -406,6 +406,36 @@ static UIView *HGFixtureDramaContainer;
             HGWritePreference(@"right.gap", @24); [detailRight layoutSubviews];
             HGCheck(closeTo(HGVisualY(detailRight.items[1]) - HGVisualY(detailRight.items[0]), 73.6), @"Right gap setting ineffective");
             HGWritePreference(@"right.gap", @6);
+            UIView *avatar = [[SSShortVideoRightInteractionAvatarView alloc] initWithFrame:CGRectMake(0, 0, 46, 46)];
+            UIView *badge = [[UIView alloc] initWithFrame:CGRectMake(3, 24, 40, 26)]; [avatar addSubview:badge];
+            [detailRight addSubview:avatar]; detailRight.frame = CGRectMake(346, 423, 46, 342);
+            for (NSUInteger cycle = 0; cycle < 6; cycle++) {
+                // Collection/detail constraints bypass setFrame and write center/bounds directly.
+                for (NSUInteger index = 0; index < detailRight.items.count; index++) {
+                    UIView *item = detailRight.items[index]; item.bounds = CGRectMake(0, 0, 46, 62);
+                    item.center = CGPointMake(index == 3 ? 46 : 23, 90 + index * 134 + cycle * 7);
+                }
+                avatar.center = CGPointMake(23, 70 + cycle * 10);
+                [detailRight.items.lastObject setHidden:YES];
+                [detailRight layoutSubviews];
+                // Reset once more after layout to reproduce the captured late constraints update.
+                for (NSUInteger index = 0; index < 3; index++) detailRight.items[index].center = CGPointMake(23, 90 + index * 134 + cycle * 7);
+                for (UIView *item in detailRight.items) [item layoutSubviews]; [avatar layoutSubviews];
+                CGFloat y = 342 - (50 * 0.8 + 3 * 62 * 0.8 + 3 * 6);
+                HGCheck(closeTo(HGVisualY(avatar), y + 46 * 0.8 / 2), @"Avatar shifted after direct native center update");
+                y += 50 * 0.8 + 6;
+                for (NSUInteger index = 0; index < 3; index++) {
+                    UIView *item = detailRight.items[index]; CGFloat center = y + 62 * 0.8 / 2;
+                    HGCheck(closeTo(HGVisualY(item), center), @"Detail interaction translation accumulated");
+                    HGCheck(CGRectGetMinY(item.frame) >= 0 && CGRectGetMaxY(item.frame) <= 342.1, @"Detail interaction escaped container");
+                    CGPoint pixel = [detailRight convertPoint:CGPointMake(23, 31) fromView:item];
+                    HGCheck(closeTo(pixel.x, 23), @"Detail interaction shifted horizontally");
+                    UIView *hit = [detailRight hitTest:CGPointMake(23, center) withEvent:nil];
+                    HGCheck(hit == item || [hit isDescendantOfView:item], @"Detail control click lost after center update");
+                    y += 62 * 0.8 + 6;
+                }
+            }
+            [avatar removeFromSuperview];
             [detail.view removeFromSuperview]; [detail removeFromParentViewController];
             HGCheck(!HGFixtureBottomImage.hidden && !HGFixtureBottomBlur.hidden, @"Native distribution background was modified");
             HGCheck([HGFixtureBottom.backgroundColor isEqual:UIColor.grayColor] && [HGFixtureBottomParent.backgroundColor isEqual:UIColor.grayColor], @"Native distribution color changed");
@@ -522,6 +552,7 @@ static void HGRecordNativeMethods(void) {
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
+
 
 
 

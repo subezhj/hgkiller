@@ -52,6 +52,16 @@ static HGRightState *HGRightStateFor(UIView *view) {
     }
     return state;
 }
+static CGRect HGNativeRightRect(UIView *view) {
+    return CGRectMake(view.center.x - view.bounds.size.width / 2, view.center.y - view.bounds.size.height / 2, view.bounds.size.width, view.bounds.size.height);
+}
+static CGFloat HGRightOccupiedHeight(UIView *view) {
+    CGFloat height = view.bounds.size.height;
+    // Avatar follow badge extends to 50 pt while its native hit bounds are only 46 pt.
+    if (HGIsClass(view, @"SSShortVideoRightInteractionAvatarView"))
+        for (UIView *child in view.subviews) if (!child.hidden && child.alpha > 0.01) height = MAX(height, CGRectGetMaxY(child.frame));
+    return height;
+}
 static NSArray<UIView *> *HGRightItems(UIView *container) {
     NSMutableArray *items = [NSMutableArray array];
     // Stable semantic order, including the four-button variant found in the latest dump.
@@ -68,29 +78,29 @@ static CGPoint HGRightVisualCenter(UIView *item) {
     UIView *container = item.superview;
     CGFloat scale = HGNumber(@"right.scale"), gap = HGNumber(@"right.gap"), total = 0;
     NSArray *items = HGRightItems(container);
-    for (UIView *view in items) if (!HGRightHidden(view)) total += view.bounds.size.height * scale + gap;
+    for (UIView *view in items) if (!HGRightHidden(view)) total += HGRightOccupiedHeight(view) * scale + gap;
     total = MAX(0, total - gap);
     CGFloat y = MAX(0, container.bounds.size.height - total);
     for (UIView *view in items) {
         if (HGRightHidden(view)) continue;
-        CGFloat h = view.bounds.size.height * scale;
-        if (view == item) return CGPointMake(CGRectGetMidX(HGRightStateFor(item).nativeFrame), y + h / 2);
+        CGFloat h = HGRightOccupiedHeight(view) * scale;
+        if (view == item) return CGPointMake(CGRectGetMidX(container.bounds), y + item.bounds.size.height * scale / 2);
         y += h + gap;
     }
     return item.center;
 }
 static void HGApplyRightItem(UIView *item) {
     HGRightState *state = HGRightStateFor(item);
-    BOOL active = HGEnabled() && HGInVideoControls(item);
     BOOL hidden = HGRightHidden(item);
+    BOOL active = HGEnabled() && HGInVideoControls(item) && !hidden;
     if (item.hidden != hidden) HGApply(^{ item.hidden = hidden; });
-    if (!state.scaled) state.nativeFrame = item.frame;
+    state.nativeFrame = HGNativeRightRect(item);
     CGPoint center = active ? HGRightVisualCenter(item) : CGPointMake(CGRectGetMidX(state.nativeFrame), CGRectGetMidY(state.nativeFrame));
     CGAffineTransform target = state.hostTransform;
     if (active) {
         CGFloat scale = HGNumber(@"right.scale");
         target = CGAffineTransformConcat(state.hostTransform, CGAffineTransformMake(scale, 0, 0, scale,
-            center.x - CGRectGetMidX(state.nativeFrame), center.y - CGRectGetMidY(state.nativeFrame)));
+            center.x - item.center.x, center.y - item.center.y));
     }
     [CATransaction begin]; [CATransaction setDisableActions:YES];
     HGApply(^{
@@ -175,17 +185,18 @@ void HGInstallChrome(void) {
         HGInstall(NSClassFromString(name), frameSelector, ^id(IMP original) {
             return ^(UIView *item, CGRect frame) {
                 HGRightState *state = HGRightStateFor(item);
-                if (!HGIsApplying() && state.scaled && fabs(frame.origin.x - state.nativeFrame.origin.x) < 0.05 && fabs(frame.origin.y - state.nativeFrame.origin.y) < 0.05 && fabs(frame.size.width - state.nativeFrame.size.width) < 0.05 && fabs(frame.size.height - state.nativeFrame.size.height) < 0.05) return;
+                CGRect currentNative = HGNativeRightRect(item);
+                if (!HGIsApplying() && state.scaled && fabs(frame.origin.x - currentNative.origin.x) < 0.05 && fabs(frame.origin.y - currentNative.origin.y) < 0.05 && fabs(frame.size.width - currentNative.size.width) < 0.05 && fabs(frame.size.height - currentNative.size.height) < 0.05) return;
                 if (!HGIsApplying()) HGRestoreRightTransform(item);
                 ((void (*)(id, SEL, CGRect))original)(item, frameSelector, frame);
-                if (!HGIsApplying()) { HGRightStateFor(item).nativeFrame = item.frame; HGApplyRightItem(item); }
+                if (!HGIsApplying()) { HGRightStateFor(item).nativeFrame = HGNativeRightRect(item); HGApplyRightItem(item); }
             };
         });
         SEL frameGetter = @selector(frame);
         HGInstall(NSClassFromString(name), frameGetter, ^id(IMP original) {
             return ^CGRect(UIView *item) {
                 HGRightState *state = objc_getAssociatedObject(item, &HGRightStateKey);
-                if (HGNativeRightLayoutDepth && state.scaled) return state.nativeFrame;
+                if (HGNativeRightLayoutDepth && state.scaled) return HGNativeRightRect(item);
                 return ((CGRect (*)(id, SEL))original)(item, frameGetter);
             };
         });
@@ -261,6 +272,7 @@ void HGInstallChrome(void) {
     HGHookLayout(@"SSVideoSeriesFeedHeaderView", ^(UIView *view) { HGScaleHeaderFonts(view); });
     HGHookLayout(@"FQRJXCategoryCollectionView", ^(UIView *view) { if (HGInHeader(view)) HGScaleHeaderFonts(view); });
 }
+
 
 
 
