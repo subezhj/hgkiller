@@ -218,7 +218,8 @@ static NSUInteger HGRightActionCount;
 static UIView *HGFixtureBottom, *HGFixtureBottomParent;
 static UIImageView *HGFixtureBottomImage, *HGFixtureIcon;
 static UIVisualEffectView *HGFixtureBottomBlur;
-static UILabel *HGFixtureBottomLabel;
+static UILabel *HGFixtureBottomLabel, *HGFixtureDramaTitle;
+static UIView *HGFixtureDramaContainer;
 @interface HGRegressionApp : UIResponder <UIApplicationDelegate, UICollectionViewDataSource>
 @property(nonatomic, strong) UIWindow *window;
 @property(nonatomic, strong) SSTabBarController *fixture;
@@ -268,6 +269,11 @@ static UILabel *HGFixtureBottomLabel;
     HGFixtureBottomBlur.frame = nested.bounds; [nested addSubview:HGFixtureBottomBlur];
     HGFixtureIcon = [[UIImageView alloc] initWithFrame:CGRectMake(16, 12, 20, 20)]; [content addSubview:HGFixtureIcon];
     HGFixtureBottomLabel = [[UILabel alloc] initWithFrame:CGRectMake(38, 12, 200, 20)]; HGFixtureBottomLabel.text = @"观看完整短剧"; [content addSubview:HGFixtureBottomLabel];
+    HGFixtureDramaContainer = [[UIView alloc] initWithFrame:CGRectMake(16, 645, 282, 80)];
+    [fixture.list.view addSubview:HGFixtureDramaContainer];
+    HGFixtureDramaTitle = [[UILabel alloc] initWithFrame:CGRectMake(0, 30, 240, 22)];
+    HGFixtureDramaTitle.text = @"别叫姐姐"; HGFixtureDramaTitle.font = [UIFont systemFontOfSize:18];
+    [HGFixtureDramaContainer addSubview:HGFixtureDramaTitle];
     HGWriteProgress(-1);
     [self.window makeKeyAndVisible];
     [NSUserDefaults.standardUserDefaults setObject:@"SSTabBarTextButton layoutSubviews：历史测试记录" forKey:[HGPreferencePrefix stringByAppendingString:@"safety.lastReason"]];
@@ -301,6 +307,8 @@ static UILabel *HGFixtureBottomLabel;
             HGCheck([button pointInside:[button convertPoint:p fromView:bar] withEvent:nil], @"Native tracking rejected mapped touch");
         }
     }
+    HGCheck(rectClose(HGFixtureDramaContainer.frame, CGRectMake(16, 645, 282, 80)), @"Drama caption container moved with tab height");
+    HGCheck(rectClose(HGFixtureDramaTitle.frame, CGRectMake(0, 30, 240, 22)) && closeTo(HGFixtureDramaTitle.font.pointSize, 18), @"Drama title position or font was changed");
     HGCheck(rectClose(HGFixtureBottomParent.frame, CGRectMake(0, 740, 402, 44)), @"Native episode entry moved with tab height");
     HGCheck(closeTo(self.fixture.collection.bounds.size.height, self.fixture.list.view.bounds.size.height - 90), @"Tab height changed video viewport");
     HGCheck(HGEnabled() && !HGSafetyPaused(), @"Tab layout triggered protection before deliberate stress");
@@ -484,6 +492,7 @@ static void HGRecordNativeMethods(void) {
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
+
 
 
 
