@@ -9,6 +9,7 @@ static char HGTabFontKey, HGNativeTabKey;
 @implementation HGTabFontState @end
 @interface HGNativeTabState : NSObject
 @property(nonatomic) BOOL clips;
+@property(nonatomic, strong) CALayer *underlay;
 @property(nonatomic) BOOL active;
 @end
 @implementation HGNativeTabState @end
@@ -26,7 +27,8 @@ static BOOL HGTabActive(UIView *view) {
 static CGFloat HGTabButtonHeight(UIView *bar, CGRect native) {
     CGFloat safe = MIN(bar.window.safeAreaInsets.bottom, native.size.height);
     CGFloat available = MAX(0, native.size.height - safe);
-    return MIN(available, MAX(28, MIN(50, HGNumber(@"tab.height"))));
+    CGFloat total = MIN(native.size.height, MAX(safe + 28, HGNumber(@"tab.backgroundHeight")));
+    return MIN(available, MAX(0, total - safe));
 }
 static CGRect HGTabFrame(UIView *bar, CGRect native) {
     if (!HGTabActive(bar) || native.size.height <= 0) return native;
@@ -82,7 +84,24 @@ static void HGLayoutTab(UIView *bar) {
     BOOL active = HGTabActive(bar);
     HGNativeTabState *state = objc_getAssociatedObject(bar, &HGNativeTabKey);
     if (!state) { state = [HGNativeTabState new]; state.clips = bar.clipsToBounds; objc_setAssociatedObject(bar, &HGNativeTabKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
-    if (active) HGSetFrame(bar, HGTabFrame(bar, HGHostFrame(bar))); else HGRestoreFrame(bar);
+    if (active) {
+        if (!state.underlay) {
+            state.underlay = [CALayer layer]; state.underlay.name = @"HGK.nativeTabUnderlay";
+            state.underlay.backgroundColor = UIColor.blackColor.CGColor;
+        }
+        [CATransaction begin]; [CATransaction setDisableActions:YES];
+        if (state.underlay.superlayer != bar.layer.superlayer) {
+            [state.underlay removeFromSuperlayer];
+            [bar.layer.superlayer insertSublayer:state.underlay below:bar.layer];
+        }
+        CGRect reserved = HGHostFrame(bar);
+        if (!CGRectEqualToRect(state.underlay.frame, reserved)) state.underlay.frame = reserved;
+        [CATransaction commit];
+        HGSetFrame(bar, HGTabFrame(bar, reserved));
+    } else {
+        [state.underlay removeFromSuperlayer]; state.underlay = nil;
+        HGRestoreFrame(bar);
+    }
     HGApply(^{ if (bar.clipsToBounds != (active ? YES : state.clips)) bar.clipsToBounds = active ? YES : state.clips; });
     for (UIView *child in bar.subviews) {
         if (HGIsClass(child, @"SSTabBarTextButton")) HGTabCaption(child);
@@ -111,3 +130,4 @@ void HGInstallTabBar(void) {
     });
     // No CYLTabBar, distribution, caption container, player or video layout hooks; native hit-testing stays intact.
 }
+

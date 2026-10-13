@@ -290,6 +290,13 @@ static UIView *HGFixtureDramaContainer;
     HGCheck(closeTo(CGRectGetMaxY(bar.frame), self.window.bounds.size.height), @"Native tab not bottom aligned");
     HGCheck(bar.frame.origin.y >= self.window.bounds.size.height - 84 - 0.1, @"Tab invaded video/caption reserved region");
     HGCheck(!bar.oldBlur.hidden && !bar.oldImage.hidden, @"Native background was removed");
+    NSUInteger mats = 0;
+    for (CALayer *layer in bar.layer.superlayer.sublayers) if ([layer.name isEqualToString:@"HGK.nativeTabUnderlay"]) {
+        mats++;
+        HGCheck(rectClose(layer.frame, CGRectMake(0, self.window.bounds.size.height - 84, self.window.bounds.size.width, 84)), @"Black underlay escaped native reserved strip");
+        HGCheck(CGColorEqualToColor(layer.backgroundColor, UIColor.blackColor.CGColor), @"Exposed strip remained gray");
+    }
+    HGCheck(mats == 1, @"Gray height underlay missing or duplicated");
     HGCheck(bar.subviews.count == 3, @"Plugin inserted a floating blur background");
     HGCheck(closeTo(bar.row.bounds.size.width, 402), @"Plugin changed native row bounds");
     for (NSUInteger index = 0; index < 3; index++) {
@@ -336,7 +343,7 @@ static UIView *HGFixtureDramaContainer;
 }
 - (void)finishAfterRecovery {
     @try {
-        [self checkTabHeight:44];
+        [self checkTabHeight:50];
         [self checkSettingsState:@"正在运行"];
         HGCheck(HGEnabled() && !HGSafetyPaused(), @"Manual retry retriggered tab feedback");
         HGClearSafetyRecord();
@@ -388,7 +395,7 @@ static UIView *HGFixtureDramaContainer;
             HGCheck([HGFixtureBottom.backgroundColor isEqual:UIColor.grayColor] && [HGFixtureBottomParent.backgroundColor isEqual:UIColor.grayColor], @"Native distribution color changed");
             HGCheck([self.fixture.view.backgroundColor isEqual:UIColor.grayColor] && [self.fixture.list.view.backgroundColor isEqual:UIColor.grayColor], @"Controller canvas was modified");
             HGCheck(!HGFixtureIcon.hidden && !HGFixtureBottomLabel.hidden, @"Bottom cleanup removed navigation content");
-            [self checkTabHeight:44];
+            [self checkTabHeight:50];
             [self checkSettingsState:@"正在运行"]; [self checkSliderMargins];
             HGCheck(method_getImplementation(class_getInstanceMethod(SSTabBarTextButton.class, @selector(setFrame:))) == HGButtonFrameBeforeLoad, @"Native tab frame method was hooked");
             CGFloat height = self.fixture.collection.superview.bounds.size.height - 90;
@@ -414,7 +421,7 @@ static UIView *HGFixtureDramaContainer;
             HGCheck(closeTo(first.label.font.pointSize, 14), @"Tab host resets defeated font size");
             HGWritePreference(@"tab.textScale", @1); [first layoutSubviews];
             HGCheck(closeTo(first.label.font.pointSize, 20), @"Tab text size did not restore");
-            [bar layoutSubviews]; [self checkTabHeight:44];
+            [bar layoutSubviews]; [self checkTabHeight:50];
             HGWritePreference(@"right.scale", scales[0]);
         } else if (self.phase <= scales.count) {
             double expected = [scales[self.phase - 1] doubleValue];
@@ -440,13 +447,13 @@ static UIView *HGFixtureDramaContainer;
             }
             HGCheck(HGRightPasses < 150 && HGBarPasses < 150, @"Layouts failed to converge");
             if (self.phase < scales.count) HGWritePreference(@"right.scale", scales[self.phase]);
-            else HGWritePreference(@"tab.height", @28);
+            else HGWritePreference(@"tab.backgroundHeight", @62);
         } else if (self.phase == 6) {
-            [self checkTabHeight:28]; HGWritePreference(@"tab.height", @50);
+            [self checkTabHeight:28]; HGWritePreference(@"tab.backgroundHeight", @84);
         } else if (self.phase == 7) {
-            [self checkTabHeight:50]; HGWritePreference(@"tab.height", @44);
+            [self checkTabHeight:50]; HGWritePreference(@"tab.backgroundHeight", @84);
         } else if (self.phase == 8) {
-            [self checkTabHeight:44]; HGWritePreference(@"right.comment", @NO);
+            [self checkTabHeight:50]; HGWritePreference(@"right.comment", @NO);
         } else if (self.phase == 9) {
             HGCheck(self.fixture.right.items[1].hidden, @"Right visibility switch did not hide comment");
             HGCheck(closeTo(HGVisualY(self.fixture.right.items[0]), 284 - (3 * 62 * HGNumber(@"right.scale") + 2 * HGNumber(@"right.gap")) + 31 * HGNumber(@"right.scale")), @"Visible right items did not compact");
@@ -459,6 +466,8 @@ static UIView *HGFixtureDramaContainer;
             HGCheck(!HGFixtureBottomImage.hidden && !HGFixtureBottomBlur.hidden, @"Bottom materials failed to restore when disabled");
             HGCheck([self.fixture.list.view.backgroundColor isEqual:UIColor.grayColor], @"Playback canvas did not restore");
             HGCheck([HGFixtureBottomParent.backgroundColor isEqual:UIColor.grayColor], @"Bottom parent color failed to restore");
+            for (CALayer *layer in self.fixture.bar.layer.superlayer.sublayers)
+                HGCheck(![layer.name isEqualToString:@"HGK.nativeTabUnderlay"], @"Underlay failed to restore on disable");
             [self checkSettingsState:@"已关闭"];
             HGSteadyRightPasses = HGRightPasses; HGSteadyButtonPasses = HGButtonPasses;
             HGWritePreference(@"enabled", @YES);
@@ -492,6 +501,7 @@ static void HGRecordNativeMethods(void) {
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
+
 
 
 
