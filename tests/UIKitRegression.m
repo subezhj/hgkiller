@@ -309,7 +309,7 @@ static UIView *HGFixtureDramaContainer;
     NSUInteger mats = 0;
     for (CALayer *layer in bar.layer.superlayer.sublayers) if ([layer.name isEqualToString:@"HGK.nativeTabUnderlay"]) {
         mats++;
-        HGCheck(rectClose(layer.frame, bar.frame), @"Black underlay overlapped expanded video");
+        HGCheck(rectClose(layer.frame, CGRectMake(0, self.window.bounds.size.height - 84, self.window.bounds.size.width, 84)), @"Black underlay escaped native strip");
         HGCheck(CGColorEqualToColor(layer.backgroundColor, UIColor.blackColor.CGColor), @"Exposed strip remained gray");
     }
     for (CALayer *layer in bar.layer.superlayer.sublayers) if ([layer.name isEqualToString:@"HGK.nativeTabUnderlay"]) {
@@ -342,7 +342,8 @@ static UIView *HGFixtureDramaContainer;
     HGCheck(closeTo(self.fixture.collection.bounds.size.height, self.fixture.list.view.bounds.size.height - 90), @"Tab height changed video viewport");
     HGCheck(HGProjectedPlayer && HGProjectedTitle, @"Projection fixture missing");
     CGPoint videoBottom = [HGProjectedPlayer.layer convertPoint:CGPointMake(HGProjectedPlayer.bounds.size.width / 2, 784) toLayer:self.window.layer];
-    HGCheck(closeTo(videoBottom.y, bar.frame.origin.y), @"Rendered video did not fill tab gap");
+    HGCheck(closeTo(videoBottom.y, 784), @"Native video edge changed after projection rollback");
+    HGCheck(CATransform3DIsIdentity(self.fixture.collection.layer.sublayerTransform) && self.fixture.collection.layer.mask == nil, @"List-wide video projection remains installed");
     CGPoint titleCenter = [HGProjectedTitle.layer convertPoint:CGPointMake(120, 11) toLayer:self.window.layer];
     HGCheck(closeTo(titleCenter.x, 136) && closeTo(titleCenter.y, 656), @"Video projection moved drama text pixels");
     HGCheck(closeTo(HGProjectedPlayer.bounds.size.height, 784), @"Player geometry changed during projection");
@@ -535,6 +536,7 @@ static void HGRecordNativeMethods(void) {
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
+
 
 
 

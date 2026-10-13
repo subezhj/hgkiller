@@ -96,7 +96,7 @@ static void HGLayoutTab(UIView *bar) {
         }
         state.underlay.hidden = bar.hidden || bar.alpha < 0.01;
         CGRect reserved = HGHostFrame(bar);
-        CGRect backing = HGTabFrame(bar, reserved);
+        CGRect backing = reserved; // No video projection: keep the unused strip black.
         if (!CGRectEqualToRect(state.underlay.frame, backing)) state.underlay.frame = backing;
         [CATransaction commit];
         HGSetFrame(bar, HGTabFrame(bar, reserved));
@@ -155,6 +155,7 @@ void HGInstallTabBar(void) {
     });
     // No CYLTabBar, distribution, caption container, player or video layout hooks; native hit-testing stays intact.
 }
+
 
 
 
