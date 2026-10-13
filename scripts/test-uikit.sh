@@ -7,7 +7,7 @@ SIM_ARCH="$(uname -m)"
 xcrun --sdk iphonesimulator clang \
   -target "$SIM_ARCH-apple-ios14.0-simulator" -isysroot "$SIM_SDK" \
   -fobjc-arc -fblocks -O1 -Wall -Wextra -Wno-unused-parameter -Wno-deprecated-declarations \
-  -I src src/HGCore.m src/HGChrome.m src/HGLayout.m src/HGTabBar.m \
+  -I src src/HGCore.m src/HGChrome.m src/HGCaption.m src/HGLayout.m src/HGTabBar.m \
   src/HGSettings.m src/HGEntry.m tests/UIKitRegression.m \
   -framework UIKit -framework Foundation -framework QuartzCore -framework CoreGraphics \
   -o build/HGUIKitRegression.app/HGUIKitRegression
@@ -20,7 +20,7 @@ cat > build/HGUIKitRegression.app/Info.plist <<'PLIST'
 <key>CFBundleName</key><string>HGUIKitRegression</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleVersion</key><string>1</string>
-<key>CFBundleShortVersionString</key><string>0.1.13</string>
+<key>CFBundleShortVersionString</key><string>0.1.14</string>
 <key>MinimumOSVersion</key><string>14.0</string>
 <key>UIDeviceFamily</key><array><integer>1</integer></array>
 <key>UILaunchScreen</key><dict/>

@@ -23,6 +23,7 @@ static NSDictionary *HGDefaults(void) {
         @"right.scale": @0.80, @"right.gap": @6.0,
         @"tab.textScale": @1.0, @"video.extend": @NO,
         @"video.fillPortrait": @NO,
+        @"caption.enabled": @YES, @"caption.titleScale": @1.0, @"caption.descriptionScale": @1.0,
         @"top.enabled": @YES, @"top.scale": @0.85
     };
 }
@@ -32,7 +33,7 @@ static void HGReloadPreferences(void) {
         id value = [NSUserDefaults.standardUserDefaults objectForKey:[HGPreferencePrefix stringByAppendingString:key]];
         if ([value isKindOfClass:NSNumber.class]) values[key] = value;
     }
-    for (NSString *key in @[@"right.scale", @"top.scale"]) {
+    for (NSString *key in @[@"right.scale", @"top.scale", @"caption.titleScale", @"caption.descriptionScale"]) {
         double value = [values[key] doubleValue];
         values[key] = @(isfinite(value) ? MAX(0.55, MIN(1.0, value)) : [HGDefaults()[key] doubleValue]);
     }
@@ -194,7 +195,7 @@ void HGHookFrame(NSString *name, CGRect (^adjust)(UIView *, CGRect)) {
 }
 static void HGMarkTargets(UIView *view) {
     for (NSString *name in @[@"SSShortVideoRightInteractionView", @"SSTabBarTextButton",
-                            @"SSVideoSeriesFeedHeaderView",
+                            @"SSVideoSeriesFeedHeaderView", @"SSShortVideoOutterSeriesLeftContainerView", @"SSShortVideoSingleSeriesInfoLeftContainerView",
                             @"SSShortVideoBottomDistributionView"]) {
         if (HGIsClass(view, name)) { [view setNeedsLayout]; break; }
     }
@@ -233,6 +234,7 @@ NSArray<NSString *> *HGMissingClasses(void) {
     }
     return missing;
 }
+
 
 
 
