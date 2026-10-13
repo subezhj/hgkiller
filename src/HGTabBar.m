@@ -220,24 +220,19 @@ static void HGFindBottom(UIView *root) {
     if (HGIsClass(root, @"SSShortVideoBottomDistributionView")) { HGTrackBottom(root); return; }
     for (UIView *child in root.subviews) HGFindBottom(child);
 }
+BOOL HGHandleTabFont(UILabel *label, UIFont *font, void (^apply)(UIFont *)) {
+    UIView *bar = HGTabAncestor(label);
+    if (!bar || HGIsApplying() || !font || HGIsClass(label, @"CYLLabel")) return NO;
+    HGTabFontState *state = objc_getAssociatedObject(label, &HGTabFontKey);
+    if (!state) { state = [HGTabFontState new]; objc_setAssociatedObject(label, &HGTabFontKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
+    if (![font isEqual:state.applied]) state.host = font;
+    BOOL active = HGTabActive(bar);
+    UIFont *output = active ? [state.host fontWithSize:MAX(10, state.host.pointSize * HGNumber(@"tab.textScale"))] : state.host;
+    state.applied = active ? output : nil;
+    if (![label.font isEqual:output]) apply(output);
+    return YES;
+}
 void HGInstallTabBar(void) {
-    SEL fontSelector = @selector(setFont:);
-    HGInstall(UILabel.class, fontSelector, ^id(IMP original) {
-        return ^(UILabel *label, UIFont *font) {
-            UIView *bar = HGTabAncestor(label);
-            UIFont *output = font;
-            if (bar && !HGIsApplying() && font && !HGIsClass(label, @"CYLLabel")) {
-                HGTabFontState *state = objc_getAssociatedObject(label, &HGTabFontKey);
-                if (!state) { state = [HGTabFontState new]; objc_setAssociatedObject(label, &HGTabFontKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
-                if (![font isEqual:state.applied]) state.host = font;
-                BOOL active = HGTabActive(bar);
-                output = active ? [state.host fontWithSize:MAX(10, state.host.pointSize * HGNumber(@"tab.textScale"))] : state.host;
-                state.applied = active ? output : nil;
-                if ([label.font isEqual:output]) return;
-            }
-            ((void (*)(id, SEL, UIFont *))original)(label, fontSelector, output);
-        };
-    });
     HGHookLayout(@"SSShortVideoBottomDistributionView", ^(UIView *v) { HGTrackBottom(v); });
     SEL moved = @selector(didMoveToWindow);
     HGInstall(NSClassFromString(@"SSShortVideoBottomDistributionView"), moved, ^id(IMP original) {
@@ -282,6 +277,7 @@ void HGInstallTabBar(void) {
         }
     });
 }
+
 
 
 

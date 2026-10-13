@@ -2,6 +2,7 @@
 #import "HGGeometry.h"
 #import <limits.h>
 
+extern BOOL HGHandleTabFont(UILabel *label, UIFont *font, void (^apply)(UIFont *));
 static char HGRightStateKey, HGFontStateKey;
 static NSUInteger HGNativeRightLayoutDepth;
 static BOOL HGInVideoControls(UIView *view) {
@@ -221,6 +222,7 @@ void HGInstallChrome(void) {
     SEL fontSelector = @selector(setFont:);
     HGInstall(UILabel.class, fontSelector, ^id(IMP original) {
         return ^(UILabel *label, UIFont *font) {
+            if (HGHandleTabFont(label, font, ^(UIFont *output) { ((void (*)(id, SEL, UIFont *))original)(label, fontSelector, output); })) return;
             UIFont *output = font;
             if (!HGIsApplying() && font && HGInHeader(label)) {
                 HGFontState *state = objc_getAssociatedObject(label, &HGFontStateKey);
@@ -259,6 +261,7 @@ void HGInstallChrome(void) {
     HGHookLayout(@"SSVideoSeriesFeedHeaderView", ^(UIView *view) { HGScaleHeaderFonts(view); });
     HGHookLayout(@"FQRJXCategoryCollectionView", ^(UIView *view) { if (HGInHeader(view)) HGScaleHeaderFonts(view); });
 }
+
 
 
 
