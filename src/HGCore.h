@@ -28,3 +28,7 @@ FOUNDATION_EXPORT void HGInstallSettings(void);
 FOUNDATION_EXPORT NSArray<NSString *> *HGMissingClasses(void);
 
 FOUNDATION_EXPORT NSString *HGSafetyReason(void);
+
+FOUNDATION_EXPORT BOOL HGSafetyPaused(void);
+FOUNDATION_EXPORT void HGClearSafetyRecord(void);
+FOUNDATION_EXPORT NSString *const HGPreferencesDidChangeNotification;

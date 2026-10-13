@@ -2,6 +2,7 @@
 #import <math.h>
 
 NSString *const HGPreferencePrefix = @"HGK.v1.";
+NSString *const HGPreferencesDidChangeNotification = @"HGKPreferencesDidChange";
 static NSDictionary *HGPreferences;
 static NSUInteger HGMutationDepth;
 static NSMutableSet<NSString *> *HGInstalled;
@@ -44,12 +45,19 @@ static void HGReloadPreferences(void) {
 }
 static char HGLayoutBurstKey;
 static BOOL HGSafetyTripped;
+static NSUInteger HGMonitoringGeneration;
 @interface HGLayoutBurst : NSObject
 @property(nonatomic) CFTimeInterval start;
 @property(nonatomic) NSUInteger count;
+@property(nonatomic) NSUInteger generation;
 @end
 @implementation HGLayoutBurst
 @end
+BOOL HGSafetyPaused(void) { return HGSafetyTripped; }
+void HGClearSafetyRecord(void) {
+    [NSUserDefaults.standardUserDefaults removeObjectForKey:[HGPreferencePrefix stringByAppendingString:@"safety.lastReason"]];
+    HGRefreshViews();
+}
 NSString *HGSafetyReason(void) {
     return [NSUserDefaults.standardUserDefaults stringForKey:[HGPreferencePrefix stringByAppendingString:@"safety.lastReason"]] ?: @"";
 }
@@ -61,7 +69,9 @@ static BOOL HGObserveLayout(id object, SEL selector) {
         objc_setAssociatedObject(object, &HGLayoutBurstKey, burst, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
     CFTimeInterval now = CACurrentMediaTime();
-    if (now - burst.start > 0.25) { burst.start = now; burst.count = 0; }
+    if (now - burst.start > 0.25 || burst.generation != HGMonitoringGeneration) {
+        burst.start = now; burst.count = 0; burst.generation = HGMonitoringGeneration;
+    }
     if (++burst.count <= 120) return YES;
     HGSafetyTripped = YES;
     NSString *reason = [NSString stringWithFormat:@"%@ %@：250ms 内重复布局超过120次，已停用增强。",
@@ -82,6 +92,9 @@ CGFloat HGNumber(NSString *key) { return [HGPreferences[key] doubleValue]; }
 
 void HGWritePreference(NSString *key, id value) {
     if (!HGDefaults()[key] || ![value isKindOfClass:NSNumber.class]) return;
+    if ([key isEqualToString:@"enabled"] && [value boolValue]) {
+        HGSafetyTripped = NO; HGMonitoringGeneration++; // Explicit user retry; keep historical reason.
+    }
     [NSUserDefaults.standardUserDefaults setObject:value forKey:[HGPreferencePrefix stringByAppendingString:key]];
     HGReloadPreferences();
     HGRefreshViews();
@@ -229,6 +242,7 @@ void HGRefreshViews(void) {
                 !HGIsClass(window.rootViewController, @"SSRootViewController")) continue;
             HGMarkTargets(window);
         }
+        [NSNotificationCenter.defaultCenter postNotificationName:HGPreferencesDidChangeNotification object:nil];
     });
 }
 NSArray<NSString *> *HGMissingClasses(void) {

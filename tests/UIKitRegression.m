@@ -3,14 +3,15 @@
 #import "HGGeometry.h"
 #import <math.h>
 
-static NSUInteger HGBarPasses, HGRightPasses, HGChecks, HGSteadyRightPasses;
-static IMP HGFeedFrameBeforeLoad, HGPlayerFrameBeforeLoad, HGItemBeforeLoad, HGSizeBeforeLoad;
+static NSUInteger HGBarPasses, HGRightPasses, HGChecks, HGSteadyRightPasses, HGButtonPasses, HGSteadyButtonPasses;
+static BOOL HGDidTripSafety;
+static IMP HGFeedFrameBeforeLoad, HGPlayerFrameBeforeLoad, HGItemBeforeLoad, HGSizeBeforeLoad, HGButtonFrameBeforeLoad;
 static void HGFinish(NSString *error) {
     NSString *path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject
                       stringByAppendingPathComponent:@"hg-results.json"];
     NSDictionary *result = @{@"success": @(!error), @"checks": @(HGChecks),
                              @"tabLayoutPasses": @(HGBarPasses), @"rightLayoutPasses": @(HGRightPasses),
-                             @"error": error ?: @"", @"steadyRightLayoutPasses": @(HGSteadyRightPasses), @"safetyTripped": @(!HGEnabled() && HGSafetyReason().length > 0)};
+                             @"error": error ?: @"", @"steadyRightLayoutPasses": @(HGSteadyRightPasses), @"safetyTripped": @(HGDidTripSafety), @"recoveredEnabled": @(HGEnabled()), @"currentSafetyPaused": @(HGSafetyPaused()), @"buttonLayoutPasses": @(HGButtonPasses), @"steadyButtonLayoutPasses": @(HGSteadyButtonPasses)};
     [[NSJSONSerialization dataWithJSONObject:result options:NSJSONWritingPrettyPrinted error:nil] writeToFile:path atomically:YES];
 }
 static void HGCheck(BOOL condition, NSString *message) {
@@ -67,8 +68,11 @@ static BOOL closeTo(CGFloat a, CGFloat b) { return fabs(a - b) < 0.3; }
 }
 - (void)layoutSubviews {
     [super layoutSubviews];
-    // Simulate the hard-coded 402-wide host layout seen in the supplied dump.
-    self.caption.frame = CGRectMake(49.6667, 13.6667, 32, 22.6667);
+    HGButtonPasses++;
+    CGRect native = CGRectMake(49.6667, 13.6667, 32, 22.6667);
+    // Adversarial host: reject plugin geometry writes and request another layout until native constraints match.
+    if (!CGRectEqualToRect(self.caption.frame, native) || !closeTo(self.bounds.size.width, 131.3333)) [self setNeedsLayout];
+    self.caption.frame = native;
 }
 @end
 @interface CYLTabBar : UIView @end
@@ -215,6 +219,7 @@ static BOOL closeTo(CGFloat a, CGFloat b) { return fabs(a - b) < 0.3; }
     [fixture.view addSubview:fixture.bar];
     for (SSTabBarTextButton *button in fixture.bar.buttons) [button addTarget:fixture action:@selector(tapped:) forControlEvents:UIControlEventTouchUpInside];
     [self.window makeKeyAndVisible];
+    [NSUserDefaults.standardUserDefaults setObject:@"SSTabBarTextButton layoutSubviews：历史测试记录" forKey:[HGPreferencePrefix stringByAppendingString:@"safety.lastReason"]];
     HGResetPreferences();
     [self performSelector:@selector(runPhase) withObject:nil afterDelay:0.6];
     return YES;
@@ -222,22 +227,62 @@ static BOOL closeTo(CGFloat a, CGFloat b) { return fabs(a - b) < 0.3; }
 - (void)checkTabHeight:(CGFloat)height {
     SSTabBar *bar = self.fixture.bar;
     HGCheck(closeTo(bar.bounds.size.height, height), @"Configured tab height not applied");
-    HGCheck(bar.oldBlur.hidden && bar.oldImage.hidden, @"Old material or gray background image still visible");
-    HGCheck(closeTo(bar.row.bounds.size.width, bar.bounds.size.width), @"Native 402pt row was not resized");
+    HGCheck(bar.oldBlur.hidden && bar.oldImage.hidden, @"Old background visible");
+    HGCheck(closeTo(bar.row.bounds.size.width, 402), @"Plugin changed native row bounds");
     for (NSUInteger index = 0; index < 3; index++) {
         SSTabBarTextButton *button = bar.buttons[index];
         HGRect slot = HGTabButtonRect(bar.bounds.size.width, height, index, 3);
-        HGCheck(closeTo(button.frame.origin.x, slot.x) && closeTo(button.bounds.size.width, slot.width), @"Native late frame write overwrote tab slot");
-        HGCheck(closeTo(button.caption.center.x, button.bounds.size.width / 2) &&
-                closeTo(button.caption.center.y, height / 2), @"Tab caption not centered");
-        HGCheck(button.bounds.size.height >= 44, @"Tab touch target below 44pt");
+        HGCheck(closeTo(button.frame.origin.x, index * 135.3333) && closeTo(button.bounds.size.width, 131.3333), @"Plugin changed native button frame");
+        HGCheck(CGRectEqualToRect(button.caption.frame, CGRectMake(49.6667, 13.6667, 32, 22.6667)), @"Plugin changed constrained caption frame");
+        CATransform3D t = button.layer.sublayerTransform;
+        CGPoint visual = [bar convertPoint:CGPointMake(button.caption.center.x + t.m41, button.caption.center.y + t.m42) fromView:button];
+        HGCheck(closeTo(visual.x, slot.x + slot.width / 2) && closeTo(visual.y, height / 2), @"Tab pixels not centered");
+        for (NSUInteger edge = 0; edge < 3; edge++) {
+            CGFloat x = edge == 0 ? slot.x + 1 : edge == 1 ? slot.x + slot.width / 2 : slot.x + slot.width - 1;
+            CGPoint p = CGPointMake(x, height / 2);
+            HGCheck([bar hitTest:p withEvent:nil] == button, @"Visual tab slot routed to wrong native button");
+            HGCheck([button pointInside:[button convertPoint:p fromView:bar] withEvent:nil], @"Native tracking rejected mapped touch");
+        }
     }
+    HGCheck(HGEnabled() && !HGSafetyPaused(), @"Tab layout triggered protection before deliberate stress");
+    HGCheck(HGButtonPasses < 120, @"Tab constraint layouts did not converge");
+}
+- (UITableViewController *)makeSettings {
+    return [[NSClassFromString(@"HGSettingsController") alloc] initWithStyle:UITableViewStyleInsetGrouped];
+}
+- (void)checkSettingsState:(NSString *)expected {
+    UITableViewController *settings = [self makeSettings];
+    UITableViewCell *status = [settings tableView:settings.tableView cellForRowAtIndexPath:[NSIndexPath indexPathForRow:1 inSection:0]];
+    HGCheck([status.detailTextLabel.text isEqualToString:expected], @"Historical reason confused current settings state");
+}
+- (void)checkSliderMargins {
+    UITableViewController *settings = [self makeSettings];
+    UITableViewCell *cell = [settings tableView:settings.tableView cellForRowAtIndexPath:[NSIndexPath indexPathForRow:5 inSection:1]];
+    for (NSNumber *width in @[@280, @370, @500]) {
+        cell.frame = CGRectMake(0, 0, width.doubleValue, 84);
+        [cell setNeedsLayout]; [cell layoutIfNeeded]; [cell.contentView layoutIfNeeded];
+        UISlider *slider = (id)[cell.contentView viewWithTag:105];
+        HGCheck(slider != nil, @"Slider cell not configured");
+        HGCheck(CGRectGetMinX(slider.frame) >= 15.7 && CGRectGetMaxX(slider.frame) <= CGRectGetWidth(cell.contentView.bounds) - 15.7, @"Slider overflowed card");
+    }
+}
+- (void)finishAfterRecovery {
+    @try {
+        [self checkTabHeight:54];
+        [self checkSettingsState:@"正在运行"];
+        HGCheck(HGEnabled() && !HGSafetyPaused(), @"Manual retry retriggered tab feedback");
+        HGClearSafetyRecord();
+        HGCheck(!HGSafetyReason().length && HGEnabled(), @"Clearing historical record changed active state");
+        HGFinish(nil);
+    } @catch (NSException *exception) { HGFinish(exception.reason); }
 }
 - (void)runPhase {
     @try {
         NSArray *scales = @[@0.55, @0.80, @1.0, @0.55, @0.80];
         if (self.phase == 0) {
             [self checkTabHeight:54];
+            [self checkSettingsState:@"正在运行"]; [self checkSliderMargins];
+            HGCheck(method_getImplementation(class_getInstanceMethod(SSTabBarTextButton.class, @selector(setFrame:))) == HGButtonFrameBeforeLoad, @"Native tab frame method was hooked");
             CGFloat height = self.fixture.collection.superview.bounds.size.height - 90;
             HGCheck(closeTo(self.fixture.collection.bounds.size.height, height), @"Hotfix changed the native feed viewport");
             UICollectionViewLayout *layout = self.fixture.collection.collectionViewLayout;
@@ -278,12 +323,18 @@ static BOOL closeTo(CGFloat a, CGFloat b) { return fabs(a - b) < 0.3; }
             HGCheck(closeTo(self.fixture.bar.bounds.size.height, 84), @"Original tab frame did not restore");
             HGCheck(closeTo(self.fixture.collection.bounds.size.height, self.fixture.list.view.bounds.size.height - 90), @"Feed viewport did not restore");
             for (UIView *item in self.fixture.right.items) HGCheck(CATransform3DIsIdentity(item.layer.sublayerTransform), @"Right visual scale did not restore");
-            HGSteadyRightPasses = HGRightPasses;
+            [self checkSettingsState:@"已关闭"];
+            HGSteadyRightPasses = HGRightPasses; HGSteadyButtonPasses = HGButtonPasses;
             HGWritePreference(@"enabled", @YES);
             for (NSUInteger n = 0; n < 160; n++) [self.fixture.right layoutSubviews];
             HGCheck(!HGEnabled(), @"Layout burst failed to disable enhancements");
             HGCheck(HGSafetyReason().length > 0, @"Circuit breaker did not record its reason");
-            HGFinish(nil); return;
+            HGDidTripSafety = HGSafetyPaused();
+            [self checkSettingsState:@"已暂停（布局保护）"];
+            HGWritePreference(@"enabled", @YES);
+            HGCheck(HGEnabled() && !HGSafetyPaused(), @"Explicit retry did not reset pause");
+            HGCheck(HGSafetyReason().length > 0, @"Explicit retry deleted historical record");
+            [self performSelector:@selector(finishAfterRecovery) withObject:nil afterDelay:0.3]; return;
         }
         self.phase++;
         [self performSelector:@selector(runPhase) withObject:nil afterDelay:0.18];
@@ -292,6 +343,7 @@ static BOOL closeTo(CGFloat a, CGFloat b) { return fabs(a - b) < 0.3; }
 @end
 __attribute__((constructor))
 static void HGRecordNativeMethods(void) {
+    HGButtonFrameBeforeLoad = method_getImplementation(class_getInstanceMethod(SSTabBarTextButton.class, @selector(setFrame:)));
     HGFeedFrameBeforeLoad = method_getImplementation(class_getInstanceMethod(FQVCollectionView.class, @selector(setFrame:)));
     HGPlayerFrameBeforeLoad = method_getImplementation(class_getInstanceMethod(FQVPlayer.class, @selector(setFrame:)));
     HGItemBeforeLoad = method_getImplementation(class_getInstanceMethod(HGFixtureLayout.class, @selector(layoutAttributesForItemAtIndexPath:)));

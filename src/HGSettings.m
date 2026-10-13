@@ -62,9 +62,43 @@ static char HGHeaderKey;
 }
 @end
 
+@interface HGSliderCell : UITableViewCell
+@property(nonatomic, strong) UILabel *caption;
+@property(nonatomic, strong) UISlider *slider;
+@end
+@implementation HGSliderCell
+- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)identifier {
+    self = [super initWithStyle:style reuseIdentifier:identifier];
+    if (self) {
+        self.caption = [UILabel new]; self.slider = [UISlider new];
+        self.caption.font = [UIFont systemFontOfSize:16];
+        self.caption.tag = 901;
+        self.caption.translatesAutoresizingMaskIntoConstraints = NO;
+        self.slider.translatesAutoresizingMaskIntoConstraints = NO;
+        [self.contentView addSubview:self.caption]; [self.contentView addSubview:self.slider];
+        [NSLayoutConstraint activateConstraints:@[
+            [self.caption.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:16],
+            [self.caption.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-16],
+            [self.caption.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:10],
+            [self.caption.heightAnchor constraintEqualToConstant:22],
+            [self.slider.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:16],
+            [self.slider.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-16],
+            [self.slider.topAnchor constraintEqualToAnchor:self.caption.bottomAnchor constant:6],
+            [self.slider.heightAnchor constraintEqualToConstant:34]
+        ]];
+    }
+    return self;
+}
+@end
+static NSString *HGSettingsState(void) {
+    if (HGSafetyPaused()) return @"已暂停（布局保护）";
+    return HGEnabled() ? @"正在运行" : @"已关闭";
+}
+
 static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
     return @[
-        @[@{@"key": @"enabled", @"title": @"启用 hgkiller"}],
+        @[@{@"key": @"enabled", @"title": @"启用 hgkiller"},
+          @{@"title": @"运行状态", @"action": @"status"}],
         @[
             @{@"key": @"right.avatar", @"title": @"显示头像"},
             @{@"key": @"right.collect", @"title": @"显示收藏"},
@@ -76,15 +110,15 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         @[
             @{@"key": @"tab.glass", @"title": @"悬浮液态玻璃底栏"},
             @{@"key": @"tab.height", @"title": @"底栏高度", @"slider": @YES, @"unit": @"pt", @"min": @44, @"max": @80},
-            @{@"key": @"video.extend", @"title": @"视频区域扩展（暂不可用）", @"disabled": @YES},
-            @{@"key": @"video.fillPortrait", @"title": @"竖屏裁切铺满（暂不可用）", @"disabled": @YES}
+
         ],
         @[
             @{@"key": @"top.enabled", @"title": @"缩小顶部文字"},
             @{@"key": @"top.scale", @"title": @"顶部文字大小", @"slider": @YES}
         ],
         @[@{@"title": @"恢复默认设置", @"action": @"reset"},
-          @{@"title": @"适配信息", @"action": @"diagnostics"}]
+          @{@"title": @"适配信息", @"action": @"diagnostics"},
+          @{@"title": @"清除上次保护记录", @"action": @"clearSafety"}]
     ];
 }
 @implementation HGSettingsController
@@ -92,20 +126,24 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
     [super viewDidLoad];
     self.title = @"hgkiller";
     self.tableView.backgroundColor = UIColor.systemGroupedBackgroundColor;
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(preferencesChanged:) name:HGPreferencesDidChangeNotification object:nil];
 }
+- (void)dealloc { [NSNotificationCenter.defaultCenter removeObserver:self]; }
+- (void)preferencesChanged:(NSNotification *)note { [self.tableView reloadData]; }
+- (void)viewWillAppear:(BOOL)animated { [super viewWillAppear:animated]; [self.tableView reloadData]; }
 - (void)close { [self dismissViewControllerAnimated:YES completion:nil]; }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return HGRows().count; }
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return HGRows()[section].count; }
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    return @[@"观影增强", @"右侧控件", @"底栏与视频区域", @"顶部文字", @"其他"][section];
+    return @[@"观影增强", @"右侧控件", @"悬浮底栏", @"顶部文字", @"其他"][section];
 }
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     switch (section) {
-        case 0: return @"关闭后恢复 hgkiller 调整的布局。检测到布局循环时会自动关闭增强，重启应用后再启用。";
+        case 0: return @"关闭后恢复 hgkiller 调整的布局。触发保护后可重新打开总开关尝试，循环保护会继续生效。";
         case 1: return @"关闭某项后自动收紧排列；大小可调为 55%–100%。";
-        case 2: return @"为排查卡死，本版暂停视频扩展和裁切，保留原播放器与分页。底栏高度和液态玻璃仍可调整。";
+        case 2: return @"视频扩展和裁切继续暂停，保留原播放器与分页。底栏文字仅视觉居中，点击仍交由原按钮处理。";
         case 3: return @"调整首页顶部分类与搜索文字，保留原来的入口。";
-        default: return @"hgkiller 0.1.2 · 红果短剧 7.3.9 适配";
+        default: return @"hgkiller 0.1.3 · 红果短剧 7.3.9 适配";
     }
 }
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)path {
@@ -119,28 +157,20 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
     NSString *key = row[@"key"];
     NSInteger tag = path.section * 100 + path.row;
     if ([row[@"slider"] boolValue]) {
-        cell.textLabel.text = nil;
-        CGFloat width = CGRectGetWidth(tableView.bounds) - 40.0;
-        UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 10, MAX(100, width - 32), 22)];
-        title.text = [NSString stringWithFormat:[row[@"unit"] isEqualToString:@"pt"] ? @"%@  %.0f pt" : @"%@  %.0f%%", row[@"title"], HGNumber(key) * ([row[@"unit"] isEqualToString:@"pt"] ? 1 : 100)];
-        title.font = [UIFont systemFontOfSize:16];
-        title.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-        title.tag = 901;
-        [cell.contentView addSubview:title];
-        UISlider *slider = [[UISlider alloc] initWithFrame:CGRectMake(16, 38, MAX(100, width - 32), 34)];
-        slider.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+        HGSliderCell *sliderCell = [[HGSliderCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil];
+        cell = sliderCell; cell.selectionStyle = UITableViewCellSelectionStyleNone;
+        sliderCell.caption.text = [NSString stringWithFormat:[row[@"unit"] isEqualToString:@"pt"] ? @"%@  %.0f pt" : @"%@  %.0f%%", row[@"title"], HGNumber(key) * ([row[@"unit"] isEqualToString:@"pt"] ? 1 : 100)];
+        sliderCell.caption.textColor = HGEnabled() ? UIColor.labelColor : UIColor.secondaryLabelColor;
+        UISlider *slider = sliderCell.slider;
         slider.minimumValue = row[@"min"] ? [row[@"min"] floatValue] : 0.55;
         slider.maximumValue = row[@"max"] ? [row[@"max"] floatValue] : 1.0;
-        slider.value = HGNumber(key);
-        slider.continuous = NO;
-        slider.tag = tag;
-        slider.accessibilityLabel = row[@"title"];
+        slider.value = HGNumber(key); slider.continuous = NO; slider.tag = tag;
+        slider.enabled = HGEnabled(); slider.accessibilityLabel = row[@"title"];
         [slider addTarget:self action:@selector(sliderChanged:) forControlEvents:UIControlEventValueChanged];
-        [cell.contentView addSubview:slider];
     } else if (key) {
         UISwitch *toggle = [UISwitch new];
         toggle.on = HGBool(key);
-        toggle.enabled = ![row[@"disabled"] boolValue];
+        toggle.enabled = ![row[@"disabled"] boolValue] && ([key isEqualToString:@"enabled"] || HGEnabled());
         if (!toggle.enabled) cell.textLabel.textColor = UIColor.secondaryLabelColor;
         toggle.tag = tag;
         toggle.accessibilityLabel = row[@"title"];
@@ -150,6 +180,10 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         cell.selectionStyle = UITableViewCellSelectionStyleDefault;
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         if ([row[@"action"] isEqualToString:@"reset"]) cell.textLabel.textColor = UIColor.systemRedColor;
+        if ([row[@"action"] isEqualToString:@"status"]) {
+            cell.detailTextLabel.text = HGSettingsState();
+            cell.detailTextLabel.textColor = HGSafetyPaused() ? UIColor.systemOrangeColor : HGEnabled() ? UIColor.systemGreenColor : UIColor.secondaryLabelColor;
+        }
     }
     return cell;
 }
@@ -171,6 +205,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
     [tableView deselectRowAtIndexPath:path animated:YES];
     NSString *action = HGRows()[path.section][path.row][@"action"];
     if (!action) return;
+    if ([action isEqualToString:@"clearSafety"]) { HGClearSafetyRecord(); return; }
     if ([action isEqualToString:@"reset"]) {
         UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"恢复默认设置"
                                                                       message:@"恢复 hgkiller 的开关与缩放比例。"
@@ -188,8 +223,9 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         NSString *message = [NSString stringWithFormat:@"红果版本：%@\n底栏：%@\n%@",
                              version, glass, missing.count ? [@"未找到类：\n" stringByAppendingString:[missing componentsJoinedByString:@"\n"]]
                                                           : @"目标类已加载。\n实际布局仍需真机验证。"];
-        if (HGSafetyReason().length) message = [message stringByAppendingFormat:@"\n\n保护记录：%@", HGSafetyReason()];
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.2"
+        message = [message stringByAppendingFormat:@"\n\n当前状态：%@", HGSettingsState()];
+        if (HGSafetyReason().length) message = [message stringByAppendingFormat:@"\n\n上次保护记录（历史）：%@", HGSafetyReason()];
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.3"
                                                                       message:message preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:alert animated:YES completion:nil];

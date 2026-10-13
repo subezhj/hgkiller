@@ -20,7 +20,7 @@ cat > build/HGUIKitRegression.app/Info.plist <<'PLIST'
 <key>CFBundleName</key><string>HGUIKitRegression</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleVersion</key><string>1</string>
-<key>CFBundleShortVersionString</key><string>0.1.2</string>
+<key>CFBundleShortVersionString</key><string>0.1.3</string>
 <key>MinimumOSVersion</key><string>14.0</string>
 <key>UIDeviceFamily</key><array><integer>1</integer></array>
 <key>UILaunchScreen</key><dict/>
@@ -55,5 +55,5 @@ import json
 r=json.load(open("build/uikit-regression-results.json"))
 print(json.dumps(r, ensure_ascii=False, indent=2))
 if not r["success"]: raise SystemExit("UIKit regression failed: "+r["error"])
-if r["checks"] < 100: raise SystemExit("UIKit regression did not complete all phases")
+if r["checks"] < 200: raise SystemExit("UIKit regression did not complete all phases")
 '
