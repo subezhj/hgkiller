@@ -175,7 +175,7 @@ void HGInstallChrome(void) {
         HGInstall(NSClassFromString(name), frameSelector, ^id(IMP original) {
             return ^(UIView *item, CGRect frame) {
                 HGRightState *state = HGRightStateFor(item);
-                if (!HGIsApplying() && state.scaled && CGRectEqualToRect(frame, state.nativeFrame)) return;
+                if (!HGIsApplying() && state.scaled && fabs(frame.origin.x - state.nativeFrame.origin.x) < 0.05 && fabs(frame.origin.y - state.nativeFrame.origin.y) < 0.05 && fabs(frame.size.width - state.nativeFrame.size.width) < 0.05 && fabs(frame.size.height - state.nativeFrame.size.height) < 0.05) return;
                 if (!HGIsApplying()) HGRestoreRightTransform(item);
                 ((void (*)(id, SEL, CGRect))original)(item, frameSelector, frame);
                 if (!HGIsApplying()) { HGRightStateFor(item).nativeFrame = item.frame; HGApplyRightItem(item); }
@@ -261,6 +261,7 @@ void HGInstallChrome(void) {
     HGHookLayout(@"SSVideoSeriesFeedHeaderView", ^(UIView *view) { HGScaleHeaderFonts(view); });
     HGHookLayout(@"FQRJXCategoryCollectionView", ^(UIView *view) { if (HGInHeader(view)) HGScaleHeaderFonts(view); });
 }
+
 
 
 
