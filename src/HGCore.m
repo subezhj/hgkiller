@@ -21,7 +21,7 @@ static NSDictionary *HGDefaults(void) {
         @"right.avatar": @YES, @"right.collect": @YES,
         @"right.comment": @YES, @"right.like": @YES, @"right.share": @YES,
         @"right.scale": @0.80, @"right.gap": @6.0,
-        @"tab.glass": @YES, @"tab.blurAlpha": @0.85, @"tab.textScale": @1.0, @"tab.height": @54.0, @"video.extend": @NO,
+        @"tab.glass": @YES, @"tab.blurAlpha": @0.85, @"tab.textScale": @1.0, @"tab.height": @44.0, @"video.extend": @NO,
         @"video.fillPortrait": @NO,
         @"top.enabled": @YES, @"top.scale": @0.85
     };
@@ -40,7 +40,7 @@ static void HGReloadPreferences(void) {
     double alpha = [values[@"tab.blurAlpha"] doubleValue]; values[@"tab.blurAlpha"] = @(isfinite(alpha) ? MAX(0.2, MIN(1, alpha)) : 0.85);
     double text = [values[@"tab.textScale"] doubleValue]; values[@"tab.textScale"] = @(isfinite(text) ? MAX(0.55, MIN(1.2, text)) : 1);
     double tabHeight = [values[@"tab.height"] doubleValue];
-    values[@"tab.height"] = @(isfinite(tabHeight) ? MAX(44.0, MIN(80.0, tabHeight)) : 54.0);
+    values[@"tab.height"] = @(isfinite(tabHeight) ? MAX(28.0, MIN(50.0, tabHeight)) : 44.0);
     // Do not honor old saved fullscreen values in this hotfix; the corresponding hooks are absent.
     values[@"video.extend"] = @NO;
     values[@"video.fillPortrait"] = @NO;
@@ -236,6 +236,7 @@ NSArray<NSString *> *HGMissingClasses(void) {
     }
     return missing;
 }
+
 
 
 

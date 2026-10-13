@@ -75,7 +75,7 @@ static void HGWriteProgress(NSInteger phase) {
     if (self) {
         self.caption = [[UIView alloc] initWithFrame:CGRectMake(49.6667, 13.6667, 32, 22.6667)];
         self.label = [[UILabel alloc] initWithFrame:self.caption.bounds];
-        self.label.text = @"首页";
+        self.label.text = @"首页"; self.caption.userInteractionEnabled = NO;
         [self.caption addSubview:self.label]; [self addSubview:self.caption];
     }
     return self;
@@ -277,29 +277,32 @@ static UILabel *HGFixtureBottomLabel;
 }
 - (void)checkTabHeight:(CGFloat)height {
     SSTabBar *bar = self.fixture.bar;
-    UIVisualEffectView *blur = nil;
-    for (UIView *child in bar.subviews) if ([child isKindOfClass:UIVisualEffectView.class] && !child.hidden) { blur = (id)child; break; }
-    HGCheck([blur.effect isKindOfClass:UIBlurEffect.class], @"Tab is not a real blur effect");
-    HGCheck(blur.overrideUserInterfaceStyle == UIUserInterfaceStyleDark, @"Tab blur adopted white light appearance");
-    HGCheck(closeTo(blur.alpha, HGNumber(@"tab.blurAlpha")), @"Blur opacity setting ignored");
-    HGCheck(closeTo(bar.bounds.size.height, height), @"Configured tab height not applied");
-    HGCheck(bar.oldBlur.hidden && bar.oldImage.hidden, @"Old background visible");
+    CGFloat safe = MIN(self.window.safeAreaInsets.bottom, 84);
+    CGFloat expected = MIN(84 - safe, height) + safe;
+    HGCheck(closeTo(bar.bounds.size.height, expected), @"Native tab configured height not applied");
+    HGCheck(closeTo(bar.frame.origin.x, 0) && closeTo(bar.bounds.size.width, self.window.bounds.size.width), @"Native tab still floating or inset");
+    HGCheck(closeTo(CGRectGetMaxY(bar.frame), self.window.bounds.size.height), @"Native tab not bottom aligned");
+    HGCheck(bar.frame.origin.y >= self.window.bounds.size.height - 84 - 0.1, @"Tab invaded video/caption reserved region");
+    HGCheck(!bar.oldBlur.hidden && !bar.oldImage.hidden, @"Native background was removed");
+    HGCheck(bar.subviews.count == 3, @"Plugin inserted a floating blur background");
     HGCheck(closeTo(bar.row.bounds.size.width, 402), @"Plugin changed native row bounds");
     for (NSUInteger index = 0; index < 3; index++) {
         SSTabBarTextButton *button = bar.buttons[index];
-        HGRect slot = HGTabButtonRect(bar.bounds.size.width, height, index, 3);
+        HGRect slot = { index * 135.3333, 0, 131.3333, MIN(84 - safe, height) };
         HGCheck(closeTo(button.frame.origin.x, index * 135.3333) && closeTo(button.bounds.size.width, 131.3333), @"Plugin changed native button frame");
         HGCheck(rectClose(button.caption.frame, CGRectMake(49.6667, 13.6667, 32, 22.6667)), @"Plugin changed constrained caption frame");
         CATransform3D t = button.layer.sublayerTransform;
         CGPoint visual = [bar convertPoint:CGPointMake(button.caption.center.x + t.m41, button.caption.center.y + t.m42) fromView:button];
-        HGCheck(closeTo(visual.x, slot.x + slot.width / 2) && closeTo(visual.y, height / 2), @"Tab pixels not centered");
+        HGCheck(closeTo(visual.x, slot.x + 65.6667) && closeTo(visual.y, slot.height / 2), @"Tab pixels not centered");
         for (NSUInteger edge = 0; edge < 3; edge++) {
             CGFloat x = edge == 0 ? slot.x + 1 : edge == 1 ? slot.x + slot.width / 2 : slot.x + slot.width - 1;
-            CGPoint p = CGPointMake(x, height / 2);
+            CGPoint p = CGPointMake(x, slot.height / 2);
             HGCheck([bar hitTest:p withEvent:nil] == button, @"Visual tab slot routed to wrong native button");
             HGCheck([button pointInside:[button convertPoint:p fromView:bar] withEvent:nil], @"Native tracking rejected mapped touch");
         }
     }
+    HGCheck(rectClose(HGFixtureBottomParent.frame, CGRectMake(0, 740, 402, 44)), @"Native episode entry moved with tab height");
+    HGCheck(closeTo(self.fixture.collection.bounds.size.height, self.fixture.list.view.bounds.size.height - 90), @"Tab height changed video viewport");
     HGCheck(HGEnabled() && !HGSafetyPaused(), @"Tab layout triggered protection before deliberate stress");
     HGCheck(HGButtonPasses < 120, @"Tab constraint layouts did not converge");
 }
@@ -325,7 +328,7 @@ static UILabel *HGFixtureBottomLabel;
 }
 - (void)finishAfterRecovery {
     @try {
-        [self checkTabHeight:54];
+        [self checkTabHeight:44];
         [self checkSettingsState:@"正在运行"];
         HGCheck(HGEnabled() && !HGSafetyPaused(), @"Manual retry retriggered tab feedback");
         HGClearSafetyRecord();
@@ -373,11 +376,11 @@ static UILabel *HGFixtureBottomLabel;
             HGCheck(closeTo(HGVisualY(detailRight.items[1]) - HGVisualY(detailRight.items[0]), 73.6), @"Right gap setting ineffective");
             HGWritePreference(@"right.gap", @6);
             [detail.view removeFromSuperview]; [detail removeFromParentViewController];
-            HGCheck(HGFixtureBottomImage.hidden && HGFixtureBottomBlur.hidden, @"Nested bottom image or material remained visible");
-            HGCheck([HGFixtureBottom.backgroundColor isEqual:UIColor.clearColor] && [HGFixtureBottomParent.backgroundColor isEqual:UIColor.clearColor], @"Bottom parent paint remained gray");
-            HGCheck([self.fixture.view.backgroundColor isEqual:UIColor.clearColor] && [self.fixture.list.view.backgroundColor isEqual:UIColor.clearColor], @"Controller canvas below viewport remained gray");
+            HGCheck(!HGFixtureBottomImage.hidden && !HGFixtureBottomBlur.hidden, @"Native distribution background was modified");
+            HGCheck([HGFixtureBottom.backgroundColor isEqual:UIColor.grayColor] && [HGFixtureBottomParent.backgroundColor isEqual:UIColor.grayColor], @"Native distribution color changed");
+            HGCheck([self.fixture.view.backgroundColor isEqual:UIColor.grayColor] && [self.fixture.list.view.backgroundColor isEqual:UIColor.grayColor], @"Controller canvas was modified");
             HGCheck(!HGFixtureIcon.hidden && !HGFixtureBottomLabel.hidden, @"Bottom cleanup removed navigation content");
-            [self checkTabHeight:54];
+            [self checkTabHeight:44];
             [self checkSettingsState:@"正在运行"]; [self checkSliderMargins];
             HGCheck(method_getImplementation(class_getInstanceMethod(SSTabBarTextButton.class, @selector(setFrame:))) == HGButtonFrameBeforeLoad, @"Native tab frame method was hooked");
             CGFloat height = self.fixture.collection.superview.bounds.size.height - 90;
@@ -403,8 +406,7 @@ static UILabel *HGFixtureBottomLabel;
             HGCheck(closeTo(first.label.font.pointSize, 14), @"Tab host resets defeated font size");
             HGWritePreference(@"tab.textScale", @1); [first layoutSubviews];
             HGCheck(closeTo(first.label.font.pointSize, 20), @"Tab text size did not restore");
-            HGWritePreference(@"tab.blurAlpha", @0.4); [bar layoutSubviews]; [self checkTabHeight:54];
-            HGWritePreference(@"tab.blurAlpha", @0.85);
+            [bar layoutSubviews]; [self checkTabHeight:44];
             HGWritePreference(@"right.scale", scales[0]);
         } else if (self.phase <= scales.count) {
             double expected = [scales[self.phase - 1] doubleValue];
@@ -430,13 +432,13 @@ static UILabel *HGFixtureBottomLabel;
             }
             HGCheck(HGRightPasses < 150 && HGBarPasses < 150, @"Layouts failed to converge");
             if (self.phase < scales.count) HGWritePreference(@"right.scale", scales[self.phase]);
-            else HGWritePreference(@"tab.height", @44);
+            else HGWritePreference(@"tab.height", @28);
         } else if (self.phase == 6) {
-            [self checkTabHeight:44]; HGWritePreference(@"tab.height", @80);
+            [self checkTabHeight:28]; HGWritePreference(@"tab.height", @50);
         } else if (self.phase == 7) {
-            [self checkTabHeight:80]; HGWritePreference(@"tab.height", @54);
+            [self checkTabHeight:50]; HGWritePreference(@"tab.height", @44);
         } else if (self.phase == 8) {
-            [self checkTabHeight:54]; HGWritePreference(@"right.comment", @NO);
+            [self checkTabHeight:44]; HGWritePreference(@"right.comment", @NO);
         } else if (self.phase == 9) {
             HGCheck(self.fixture.right.items[1].hidden, @"Right visibility switch did not hide comment");
             HGCheck(closeTo(HGVisualY(self.fixture.right.items[0]), 284 - (3 * 62 * HGNumber(@"right.scale") + 2 * HGNumber(@"right.gap")) + 31 * HGNumber(@"right.scale")), @"Visible right items did not compact");
@@ -482,6 +484,7 @@ static void HGRecordNativeMethods(void) {
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
+
 
 
 
