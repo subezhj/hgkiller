@@ -61,7 +61,8 @@ static void HGAllocationContent(UIView *root, CGFloat nativeHeight, CGFloat targ
         if (state && state.active && CGRectEqualToRect(source, state.applied)) source = state.source;
         CGRect target = source;
         BOOL full = fabs(source.origin.y) < 0.5 && fabs(source.size.height - nativeHeight) < 0.5;
-        BOOL bottom = HGIsClass(view, @"FQVShortVideoBaseInsertView") && source.size.height < 100 && fabs(CGRectGetMaxY(source) - nativeHeight) < 0.5;
+        BOOL bottom = (HGIsClass(view, @"FQVShortVideoBaseInsertView") && source.size.height < 100 && fabs(CGRectGetMaxY(source) - nativeHeight) < 0.5) ||
+            (HGIsClass(view, @"FQVShortVideoProgressView") && source.size.height < 100 && fabs(CGRectGetMaxY(source) - nativeHeight) <= 8);
         if (active && full) {
             target.size.height = targetHeight;
             if (HGIsClass(root, @"TTMetalView") && HGIsClass(view, @"MTKView")) target.size.width = root.bounds.size.width;
