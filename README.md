@@ -1,5 +1,13 @@
 # hgkiller
 
+## 0.1.4 首页及全集控件适配
+
+根据 FLEX 1883/2053 布局，全集页面使用独立的 FQVShortVideoListViewController，右侧仍为 SSShortVideoRightInteractionView。扩大右侧控件的适配范围至这类竖屏播放页面，沿用原有大小与显示开关。
+
+- 新增右侧间距 0–24 pt，默认 6；排列间距同时参考缩放比例，中心间距至少 44 pt。保留原始控件尺寸，紧凑排列时按最近控件分配触摸。
+- 顶部分类文字处理单元格重新布局、字体设置和富文本更新，保留原始字体用于恢复，避免累积缩小。
+- 视频播放器尺寸和分页逻辑保持原生，底栏仍使用 0.1.3 的方案。
+
 ## 0.1.3 底栏布局循环专项修复
 
 真机保护记录定位到SSTabBarTextButton layoutSubviews重复调用。用户反馈0.1.2不再卡顿，但截图显示增强已被保护机制暂停。
@@ -122,4 +130,5 @@ iOS 编译通过仅证明源码可编译和动态库可生成；**未完成真�
 hgkiller 为针对红果类体系重新实现的工程，不依赖其抖音私有类。
 
 系统材质 API：[Apple UIGlassEffect](https://developer.apple.com/documentation/uikit/uiglasseffect)。
+
 

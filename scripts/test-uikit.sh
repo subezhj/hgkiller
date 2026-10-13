@@ -20,7 +20,7 @@ cat > build/HGUIKitRegression.app/Info.plist <<'PLIST'
 <key>CFBundleName</key><string>HGUIKitRegression</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleVersion</key><string>1</string>
-<key>CFBundleShortVersionString</key><string>0.1.3</string>
+<key>CFBundleShortVersionString</key><string>0.1.4</string>
 <key>MinimumOSVersion</key><string>14.0</string>
 <key>UIDeviceFamily</key><array><integer>1</integer></array>
 <key>UILaunchScreen</key><dict/>
