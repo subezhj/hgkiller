@@ -178,7 +178,12 @@ static NSUInteger HGRightActionCount;
 }
 - (void)layoutSubviews {
     HGRightPasses++; [super layoutSubviews];
-    for (NSUInteger index = 0; index < self.items.count; index++) self.items[index].frame = CGRectMake(0, index * 74, 46, 62);
+    for (NSUInteger index = 0; index < self.items.count; index++) {
+        CGRect native = CGRectMake(0, index * 74, 46, 62);
+        // Host insists on its own item frames, and repeats layout if the plugin presents transformed geometry.
+        if (!rectClose(self.items[index].frame, native)) [self setNeedsLayout];
+        self.items[index].frame = native;
+    }
 }
 @end
 
@@ -272,6 +277,11 @@ static UILabel *HGFixtureBottomLabel;
 }
 - (void)checkTabHeight:(CGFloat)height {
     SSTabBar *bar = self.fixture.bar;
+    UIVisualEffectView *blur = nil;
+    for (UIView *child in bar.subviews) if ([child isKindOfClass:UIVisualEffectView.class] && !child.hidden) { blur = (id)child; break; }
+    HGCheck([blur.effect isKindOfClass:UIBlurEffect.class], @"Tab is not a real blur effect");
+    HGCheck(blur.overrideUserInterfaceStyle == UIUserInterfaceStyleDark, @"Tab blur adopted white light appearance");
+    HGCheck(closeTo(blur.alpha, HGNumber(@"tab.blurAlpha")), @"Blur opacity setting ignored");
     HGCheck(closeTo(bar.bounds.size.height, height), @"Configured tab height not applied");
     HGCheck(bar.oldBlur.hidden && bar.oldImage.hidden, @"Old background visible");
     HGCheck(closeTo(bar.row.bounds.size.width, 402), @"Plugin changed native row bounds");
@@ -384,6 +394,17 @@ static UILabel *HGFixtureBottomLabel;
             HGCheck(method_getImplementation(class_getInstanceMethod(HGFixtureLayout.class, @selector(collectionViewContentSize))) == HGSizeBeforeLoad, @"Native content size was hooked");
             HGWritePreference(@"video.extend", @YES);
             HGCheck(!HGBool(@"video.extend"), @"Saved fullscreen setting bypassed hotfix isolation");
+            UIView *bar = self.fixture.bar;
+            SSTabBarTextButton *first = self.fixture.bar.buttons.firstObject;
+            first.label.font = [UIFont systemFontOfSize:20];
+            HGWritePreference(@"tab.textScale", @0.7); [first layoutSubviews];
+            HGCheck(closeTo(first.label.font.pointSize, 14), @"Tab text size slider ineffective");
+            for (NSUInteger n = 0; n < 10; n++) { first.label.font = [UIFont systemFontOfSize:20]; [first layoutSubviews]; }
+            HGCheck(closeTo(first.label.font.pointSize, 14), @"Tab host resets defeated font size");
+            HGWritePreference(@"tab.textScale", @1); [first layoutSubviews];
+            HGCheck(closeTo(first.label.font.pointSize, 20), @"Tab text size did not restore");
+            HGWritePreference(@"tab.blurAlpha", @0.4); [bar layoutSubviews]; [self checkTabHeight:54];
+            HGWritePreference(@"tab.blurAlpha", @0.85);
             HGWritePreference(@"right.scale", scales[0]);
         } else if (self.phase <= scales.count) {
             double expected = [scales[self.phase - 1] doubleValue];
@@ -461,6 +482,7 @@ static void HGRecordNativeMethods(void) {
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
+
 
 
 

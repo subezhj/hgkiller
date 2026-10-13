@@ -3,6 +3,7 @@
 #import <limits.h>
 
 static char HGRightStateKey, HGFontStateKey;
+static NSUInteger HGNativeRightLayoutDepth;
 static BOOL HGInVideoControls(UIView *view) {
     if (!view.window || view.window.windowLevel != UIWindowLevelNormal || view.window.bounds.size.width > view.window.bounds.size.height) return NO;
     for (UIView *node = view; node; node = node.superview)
@@ -153,8 +154,8 @@ void HGInstallChrome(void) {
     SEL layout = @selector(layoutSubviews);
     HGInstall(NSClassFromString(@"SSShortVideoRightInteractionView"), layout, ^id(IMP original) {
         return ^(UIView *container) {
-            for (UIView *item in HGRightItems(container)) HGRestoreRightTransform(item);
-            ((void (*)(id, SEL))original)(container, layout);
+            HGNativeRightLayoutDepth++;
+            @try { ((void (*)(id, SEL))original)(container, layout); } @finally { HGNativeRightLayoutDepth--; }
             HGTrackRight(container);
         };
     });
@@ -172,9 +173,19 @@ void HGInstallChrome(void) {
         SEL frameSelector = @selector(setFrame:);
         HGInstall(NSClassFromString(name), frameSelector, ^id(IMP original) {
             return ^(UIView *item, CGRect frame) {
+                HGRightState *state = HGRightStateFor(item);
+                if (!HGIsApplying() && state.scaled && CGRectEqualToRect(frame, state.nativeFrame)) return;
                 if (!HGIsApplying()) HGRestoreRightTransform(item);
                 ((void (*)(id, SEL, CGRect))original)(item, frameSelector, frame);
                 if (!HGIsApplying()) { HGRightStateFor(item).nativeFrame = item.frame; HGApplyRightItem(item); }
+            };
+        });
+        SEL frameGetter = @selector(frame);
+        HGInstall(NSClassFromString(name), frameGetter, ^id(IMP original) {
+            return ^CGRect(UIView *item) {
+                HGRightState *state = objc_getAssociatedObject(item, &HGRightStateKey);
+                if (HGNativeRightLayoutDepth && state.scaled) return state.nativeFrame;
+                return ((CGRect (*)(id, SEL))original)(item, frameGetter);
             };
         });
         HGHookLayout(name, ^(UIView *view) { HGApplyRightItem(view); });
@@ -248,6 +259,7 @@ void HGInstallChrome(void) {
     HGHookLayout(@"SSVideoSeriesFeedHeaderView", ^(UIView *view) { HGScaleHeaderFonts(view); });
     HGHookLayout(@"FQRJXCategoryCollectionView", ^(UIView *view) { if (HGInHeader(view)) HGScaleHeaderFonts(view); });
 }
+
 
 
 

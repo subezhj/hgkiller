@@ -103,7 +103,9 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
             @{@"key": @"right.gap", @"title": @"右侧控件间距", @"slider": @YES, @"unit": @"pt", @"min": @0, @"max": @24}
         ],
         @[
-            @{@"key": @"tab.glass", @"title": @"悬浮液态玻璃底栏"},
+            @{@"key": @"tab.glass", @"title": @"悬浮深色模糊底栏"},
+            @{@"key": @"tab.blurAlpha", @"title": @"模糊层不透明度", @"slider": @YES, @"min": @0.2, @"max": @1},
+            @{@"key": @"tab.textScale", @"title": @"底栏文字大小", @"slider": @YES, @"min": @0.55, @"max": @1.2},
             @{@"key": @"tab.height", @"title": @"底栏高度", @"slider": @YES, @"unit": @"pt", @"min": @44, @"max": @80},
 
         ],
@@ -138,7 +140,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         case 1: return @"关闭某项后自动收紧排列；大小 55%–100%，间距 0–24 pt。首次显示与后续布局统一应用。";
         case 2: return @"视频扩展和裁切继续暂停，保留原播放器与分页。底栏文字仅视觉居中，点击仍交由原按钮处理。";
         case 3: return @"调整首页顶部分类与搜索文字，保留原来的入口。";
-        default: return @"hgkiller 0.1.6 · 红果短剧 7.3.9 适配";
+        default: return @"hgkiller 0.1.7 · 红果短剧 7.3.9 适配";
     }
 }
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)path {
@@ -214,13 +216,13 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
     } else {
         NSArray *missing = HGMissingClasses();
         NSString *version = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"未知";
-        NSString *glass = NSClassFromString(@"UIGlassEffect") ? @"系统液态玻璃" : @"磨砂兼容模式";
+        NSString *glass = @"系统深色磨砂模糊";
         NSString *message = [NSString stringWithFormat:@"红果版本：%@\n底栏：%@\n%@",
                              version, glass, missing.count ? [@"未找到类：\n" stringByAppendingString:[missing componentsJoinedByString:@"\n"]]
                                                           : @"目标类已加载。\n实际布局仍需真机验证。"];
         message = [message stringByAppendingFormat:@"\n\n当前状态：%@\n布局保护：暂时停用", HGSettingsState()];
         if (HGSafetyReason().length) message = [message stringByAppendingFormat:@"\n\n上次保护记录（历史）：%@", HGSafetyReason()];
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.6"
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.7"
                                                                       message:message preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:alert animated:YES completion:nil];
@@ -264,6 +266,7 @@ void HGInstallSettings(void) {
         };
     });
 }
+
 
 
 

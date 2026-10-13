@@ -2,7 +2,7 @@
 #import "HGGeometry.h"
 #import <limits.h>
 
-static char HGTabStateKey, HGDecorationKey, HGContentKey;
+static char HGTabStateKey, HGDecorationKey, HGContentKey, HGTabFontKey;
 @interface HGTabState : NSObject
 @property(nonatomic, strong) UIVisualEffectView *glass;
 @property(nonatomic) CGFloat cornerRadius;
@@ -56,6 +56,23 @@ static CGRect HGTabSlot(UIView *bar, UIView *button) {
     HGRect r = HGTabButtonRect(bar.bounds.size.width, bar.bounds.size.height, index, buttons.count);
     return CGRectMake(r.x, r.y, r.width, r.height);
 }
+@interface HGTabFontState : NSObject
+@property(nonatomic, strong) UIFont *host;
+@property(nonatomic, strong) UIFont *applied;
+@end
+@implementation HGTabFontState @end
+static void HGTabFonts(UIView *view, BOOL active) {
+    if ([view isKindOfClass:UILabel.class] && !HGIsClass(view, @"CYLLabel")) {
+        UILabel *label = (id)view;
+        HGTabFontState *state = objc_getAssociatedObject(label, &HGTabFontKey);
+        if (!state) { state = [HGTabFontState new]; state.host = label.font; objc_setAssociatedObject(label, &HGTabFontKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
+        if (!state.applied || ![label.font isEqual:state.applied]) state.host = label.font;
+        UIFont *font = active ? [state.host fontWithSize:MAX(10, state.host.pointSize * HGNumber(@"tab.textScale"))] : state.host;
+        if (![label.font isEqual:font]) HGApply(^{ label.font = font; });
+        state.applied = active ? font : nil;
+    }
+    for (UIView *child in view.subviews) HGTabFonts(child, active);
+}
 static BOOL HGHasCaption(UIView *view) {
     if (HGIsClass(view, @"CYLLabel")) return NO;
     if ([view isKindOfClass:UILabel.class]) return YES;
@@ -65,6 +82,7 @@ static BOOL HGHasCaption(UIView *view) {
 static void HGCenterTabPixels(UIView *button) {
     UIView *bar = HGTabAncestor(button);
     BOOL active = bar && HGTabActive(bar);
+    HGTabFonts(button, active);
     HGTabContentState *state = objc_getAssociatedObject(button, &HGContentKey);
     if (!state && !active) return;
     if (!state) {
@@ -119,20 +137,8 @@ static void HGDecoration(UIView *view, BOOL active, BOOL hide) {
         objc_setAssociatedObject(view, &HGDecorationKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
 }
-@protocol HGGlassEffectAPI <NSObject>
-- (instancetype)initWithStyle:(NSInteger)style;
-- (void)setInteractive:(BOOL)interactive;
-@end
 static UIVisualEffect *HGMakeGlassEffect(void) {
-    Class cls = NSClassFromString(@"UIGlassEffect");
-    if (cls && [cls instancesRespondToSelector:@selector(initWithStyle:)]) {
-        id effect = [(id<HGGlassEffectAPI>)[cls alloc] initWithStyle:0];
-        if ([effect isKindOfClass:UIVisualEffect.class]) {
-            if ([effect respondsToSelector:@selector(setInteractive:)]) [(id<HGGlassEffectAPI>)effect setInteractive:YES];
-            return effect;
-        }
-    }
-    return [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterial];
+    return [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialDark];
 }
 static void HGLayoutTab(UIView *view) {
     BOOL active = HGTabActive(view);
@@ -158,11 +164,13 @@ static void HGLayoutTab(UIView *view) {
     if (active && backdrop) {
         if (!state.glass) {
             state.glass = [[UIVisualEffectView alloc] initWithEffect:HGMakeGlassEffect()];
+            state.glass.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
             state.glass.userInteractionEnabled = NO; state.glass.accessibilityElementsHidden = YES;
             [view insertSubview:state.glass atIndex:0];
         }
         HGApply(^{
             if (!CGRectEqualToRect(state.glass.frame, view.bounds)) state.glass.frame = view.bounds;
+            if (fabs(state.glass.alpha - HGNumber(@"tab.blurAlpha")) > 0.001) state.glass.alpha = HGNumber(@"tab.blurAlpha");
             CGFloat radius = CGRectGetHeight(view.bounds) / 2;
             if (state.glass.layer.cornerRadius != radius) state.glass.layer.cornerRadius = radius;
             if (!state.glass.clipsToBounds) state.glass.clipsToBounds = YES;
@@ -213,6 +221,23 @@ static void HGFindBottom(UIView *root) {
     for (UIView *child in root.subviews) HGFindBottom(child);
 }
 void HGInstallTabBar(void) {
+    SEL fontSelector = @selector(setFont:);
+    HGInstall(UILabel.class, fontSelector, ^id(IMP original) {
+        return ^(UILabel *label, UIFont *font) {
+            UIView *bar = HGTabAncestor(label);
+            UIFont *output = font;
+            if (bar && !HGIsApplying() && font && !HGIsClass(label, @"CYLLabel")) {
+                HGTabFontState *state = objc_getAssociatedObject(label, &HGTabFontKey);
+                if (!state) { state = [HGTabFontState new]; objc_setAssociatedObject(label, &HGTabFontKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
+                if (![font isEqual:state.applied]) state.host = font;
+                BOOL active = HGTabActive(bar);
+                output = active ? [state.host fontWithSize:MAX(10, state.host.pointSize * HGNumber(@"tab.textScale"))] : state.host;
+                state.applied = active ? output : nil;
+                if ([label.font isEqual:output]) return;
+            }
+            ((void (*)(id, SEL, UIFont *))original)(label, fontSelector, output);
+        };
+    });
     HGHookLayout(@"SSShortVideoBottomDistributionView", ^(UIView *v) { HGTrackBottom(v); });
     SEL moved = @selector(didMoveToWindow);
     HGInstall(NSClassFromString(@"SSShortVideoBottomDistributionView"), moved, ^id(IMP original) {
@@ -257,5 +282,7 @@ void HGInstallTabBar(void) {
         }
     });
 }
+
+
 
 
