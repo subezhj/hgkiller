@@ -136,7 +136,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
     switch (section) {
         case 0: return @"关闭后恢复 hgkiller 调整的布局。本版本暂时停用布局保护。";
         case 1: return @"关闭某项后自动收紧排列；大小 55%–100%，间距 0–24 pt。首次显示与后续布局统一应用。";
-        case 2: return @"调整整块灰色底栏高度，包含底部安全区。底栏上沿贴近全集入口，缩小时余量留在底部安全区；冷启动自动应用，不移动剧名、简介、全集入口或视频。";
+        case 2: return @"调整整块灰色底栏高度，包含底部安全区。底栏贴底；视频等比放大填满上方间隙，会轻微裁切左右边缘。控制层作显示补偿，保留文案位置与原生分页；冷启动自动应用。";
         case 3: return @"调整首页顶部分类与搜索文字，保留原来的入口。";
         default: return @"hgkiller 0.1.10 · 红果短剧 7.3.9 适配";
     }
@@ -264,6 +264,7 @@ void HGInstallSettings(void) {
         };
     });
 }
+
 
 
 

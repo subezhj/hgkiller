@@ -198,7 +198,7 @@ void HGHookFrame(NSString *name, CGRect (^adjust)(UIView *, CGRect)) {
     });
 }
 static void HGMarkTargets(UIView *view) {
-    for (NSString *name in @[@"SSShortVideoRightInteractionView", @"SSTabBar", @"CYLTabBar",
+    for (NSString *name in @[@"FQVCollectionView", @"SSShortVideoRightInteractionView", @"SSTabBar", @"CYLTabBar",
                             @"SSVideoSeriesFeedHeaderView",
                             @"SSShortVideoBottomDistributionView"]) {
         if (HGIsClass(view, name)) { [view setNeedsLayout]; break; }
@@ -238,6 +238,7 @@ NSArray<NSString *> *HGMissingClasses(void) {
     }
     return missing;
 }
+
 
 
 
