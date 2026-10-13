@@ -296,6 +296,12 @@ static UIView *HGFixtureDramaContainer;
         HGCheck(rectClose(layer.frame, CGRectMake(0, self.window.bounds.size.height - 84, self.window.bounds.size.width, 84)), @"Black underlay escaped native reserved strip");
         HGCheck(CGColorEqualToColor(layer.backgroundColor, UIColor.blackColor.CGColor), @"Exposed strip remained gray");
     }
+    for (CALayer *layer in bar.layer.superlayer.sublayers) if ([layer.name isEqualToString:@"HGK.nativeTabUnderlay"]) {
+        bar.hidden = YES; HGCheck(layer.hidden, @"Hidden tab left black underlay over playback");
+        bar.hidden = NO; HGCheck(!layer.hidden, @"Underlay failed to follow visible tab");
+        bar.alpha = 0; HGCheck(layer.hidden, @"Transparent tab left underlay behind");
+        bar.alpha = 1; HGCheck(!layer.hidden, @"Underlay failed to restore opacity visibility");
+    }
     HGCheck(mats == 1, @"Gray height underlay missing or duplicated");
     HGCheck(bar.subviews.count == 3, @"Plugin inserted a floating blur background");
     HGCheck(closeTo(bar.row.bounds.size.width, 402), @"Plugin changed native row bounds");
@@ -501,6 +507,7 @@ static void HGRecordNativeMethods(void) {
 int main(int argc, char *argv[]) {
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, NSStringFromClass(HGRegressionApp.class)); }
 }
+
 
 
 

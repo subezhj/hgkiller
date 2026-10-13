@@ -94,6 +94,7 @@ static void HGLayoutTab(UIView *bar) {
             [state.underlay removeFromSuperlayer];
             [bar.layer.superlayer insertSublayer:state.underlay below:bar.layer];
         }
+        state.underlay.hidden = bar.hidden || bar.alpha < 0.01;
         CGRect reserved = HGHostFrame(bar);
         if (!CGRectEqualToRect(state.underlay.frame, reserved)) state.underlay.frame = reserved;
         [CATransaction commit];
@@ -121,7 +122,20 @@ BOOL HGHandleTabFont(UILabel *label, UIFont *font, void (^apply)(UIFont *)) {
     if (![label.font isEqual:output]) apply(output);
     return YES;
 }
+static void HGSyncUnderlay(UIView *bar) {
+    HGNativeTabState *state = objc_getAssociatedObject(bar, &HGNativeTabKey);
+    BOOL hidden = bar.hidden || bar.alpha < 0.01;
+    if (state.underlay && state.underlay.hidden != hidden) state.underlay.hidden = hidden;
+}
 void HGInstallTabBar(void) {
+    SEL hiddenSelector = @selector(setHidden:);
+    HGInstall(NSClassFromString(@"SSTabBar"), hiddenSelector, ^id(IMP original) {
+        return ^(UIView *bar, BOOL hidden) { ((void (*)(id, SEL, BOOL))original)(bar, hiddenSelector, hidden); HGSyncUnderlay(bar); };
+    });
+    SEL alphaSelector = @selector(setAlpha:);
+    HGInstall(NSClassFromString(@"SSTabBar"), alphaSelector, ^id(IMP original) {
+        return ^(UIView *bar, CGFloat alpha) { ((void (*)(id, SEL, CGFloat))original)(bar, alphaSelector, alpha); HGSyncUnderlay(bar); };
+    });
     HGHookFrame(@"SSTabBar", ^CGRect(UIView *bar, CGRect frame) { return HGTabFrame(bar, frame); });
     HGHookLayout(@"SSTabBar", ^(UIView *bar) { HGLayoutTab(bar); });
     HGHookLayout(@"SSTabBarTextButton", ^(UIView *button) { HGTabCaption(button); });
@@ -130,4 +144,5 @@ void HGInstallTabBar(void) {
     });
     // No CYLTabBar, distribution, caption container, player or video layout hooks; native hit-testing stays intact.
 }
+
 
