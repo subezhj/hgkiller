@@ -93,7 +93,7 @@ void HGUpdateVideoExperiment(UIView *bar) {
             picture.bounds.size.height / picture.bounds.size.width < 1.70 ||
             fabs(display.size.width - bar.window.bounds.size.width) > 1 || fabs(CGRectGetMinY(display)) > 1 ||
             extra <= 1 || extra > 120 || target.size.height / display.size.height > 1.20) {
-            HGRestoreVideoExperiment(); HGVideoStatus = @"黑底：滚动未停稳、非高竖屏或扩展范围不匹配。"; return;
+            HGRestoreVideoExperiment(); HGVideoStatus = [NSString stringWithFormat:@"黑底：滚动或几何条件未匹配。\n当前页 y=%.1f，画面=%@\n容器高/宽=%.3f，待扩展=%.1f pt\n拖动=%@，减速=%@", CGRectGetMinY(page), NSStringFromCGRect(display), picture.bounds.size.height / picture.bounds.size.width, extra, collection.dragging ? @"是" : @"否", collection.decelerating ? @"是" : @"否"]; return;
         }
         UIView *metal = HGFindView(picture, @"TTMetalView");
         if (!metal || picture.subviews.count != 1 || metal.superview != picture || !HGPlaybackVisible(metal)) {
@@ -120,6 +120,14 @@ void HGUpdateVideoExperiment(UIView *bar) {
         if (owner.view.bounds.size.height + 1 < target.size.height || owner.view.layer.mask) {
             HGVideoStatus = @"黑底：播放根视图未覆盖目标区域。"; return;
         }
+        for (UIView *node = owner.view; node; node = node.superview) {
+            CGRect rect = [node convertRect:node.bounds toView:bar.window];
+            if (node.layer.mask || (node.clipsToBounds && !CGRectContainsRect(rect, target))) {
+                HGVideoStatus = @"黑底：播放根视图上方仍存在裁切，不扩展该父级。"; return;
+            }
+        }
+        for (UIViewController *node = owner; node; node = node.parentViewController)
+            if (node.presentedViewController) { HGVideoStatus = @"黑底：播放页正在显示其他面板。"; return; }
         HGVideoExperiment *state = [HGVideoExperiment new];
         state.picture = picture; state.cell = cell; state.bar = bar; state.collection = collection;
         state.source = picture.layer.sublayerTransform; state.sourceBounds = picture.bounds; state.target = target;
