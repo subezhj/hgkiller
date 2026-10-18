@@ -17,6 +17,7 @@ static void HGFinish(NSString *error) {
     NSDictionary *result = @{@"success": @(!error), @"checks": @(HGChecks),
                              @"tabLayoutPasses": @(HGBarPasses), @"rightLayoutPasses": @(HGRightPasses), @"nativeCellRejections": @(HGNativeCellRejections),
                              @"error": error ?: @"", @"steadyRightLayoutPasses": @(HGSteadyRightPasses), @"safetyTripped": @(HGDidTripSafety), @"recoveredEnabled": @(HGEnabled()), @"currentSafetyPaused": @(HGSafetyPaused()), @"buttonLayoutPasses": @(HGButtonPasses), @"steadyButtonLayoutPasses": @(HGSteadyButtonPasses)};
+    NSMutableDictionary *diagnostic = [result mutableCopy]; diagnostic[@"videoExperimentStatus"] = HGVideoExperimentStatus(); diagnostic[@"liquidStatus"] = HGLiquidDiagnosticText(); result = diagnostic;
     [[NSJSONSerialization dataWithJSONObject:result options:NSJSONWritingPrettyPrinted error:nil] writeToFile:path atomically:YES];
 }
 static void HGCheck(BOOL condition, NSString *message) {
@@ -312,6 +313,7 @@ static UIView *HGFixtureDramaContainer;
     [fixture.feed addChildViewController:fixture.list]; [fixture.feed.view addSubview:fixture.list.view];
     [fixture.list didMoveToParentViewController:fixture.feed];
     fixture.collection = [[FQVCollectionView alloc] initWithFrame:CGRectZero collectionViewLayout:[HGFixtureLayout new]];
+    fixture.collection.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
     fixture.collection.dataSource = self; fixture.collection.pagingEnabled = YES;
     [fixture.collection registerClass:FQVShortVideoCell.class forCellWithReuseIdentifier:@"fixture"];
     [fixture.list.view addSubview:fixture.collection];
@@ -657,7 +659,7 @@ static UIView *HGFixtureDramaContainer;
             BOOL originalClip = self.fixture.collection.clipsToBounds;
             CGPoint originalOffset = self.fixture.collection.contentOffset;
             HGWritePreference(@"tab.liquid.video", @YES); HGUpdateVideoExperiment(self.fixture.bar);
-            HGCheck(render.layer.sublayerTransform.m11 > 1 && HGVideoCoversBar(self.fixture.bar), @"Verified portrait render did not extend underneath bar");
+            HGCheck(render.layer.sublayerTransform.m11 > 1 && HGVideoCoversBar(self.fixture.bar), [@"Verified portrait render did not extend underneath bar: " stringByAppendingString:HGVideoExperimentStatus()]);
             HGCheck(rectClose(self.fixture.collection.frame, originalFeed) && CGPointEqualToPoint(self.fixture.collection.contentOffset, originalOffset), @"Render experiment modified paging geometry");
             CATransform3D fixedRender = render.layer.sublayerTransform;
             for (NSInteger pass = 0; pass < 5; pass++) HGUpdateVideoExperiment(self.fixture.bar);
