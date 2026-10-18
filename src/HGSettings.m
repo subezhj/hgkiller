@@ -3,6 +3,8 @@
 
 static char HGHeaderKey;
 @interface HGSettingsController : UITableViewController
+@property(nonatomic, copy) NSString *settingsPage;
+- (NSArray<NSArray<NSDictionary *> *> *)settingsRows;
 @end
 @interface HGSettingsHeader : UIView
 @property(nonatomic, strong) UIButton *entry;
@@ -89,7 +91,7 @@ static NSString *HGSettingsState(void) {
     return HGEnabled() ? @"正在运行" : @"已关闭";
 }
 
-static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
+static NSArray<NSArray<NSDictionary *> *> *HGAllRows(void) {
     NSMutableArray *sections = [@[
         @[@{@"key": @"enabled", @"title": @"启用 hgkiller"},
           @{@"title": @"运行状态", @"action": @"status"}],
@@ -119,7 +121,8 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         @[@{@"title": @"恢复默认设置", @"action": @"reset"},
           @{@"title": @"适配信息", @"action": @"diagnostics"},
           @{@"title": @"清除上次保护记录", @"action": @"clearSafety"},
-          @{@"title": @"高度诊断记录", @"action": @"heightLog"}]
+          @{@"title": @"高度诊断记录", @"action": @"heightLog"},
+          @{@"title": @"横屏入口诊断", @"action": @"landscapeLog"}]
     ] mutableCopy];
     [sections addObject:@[
         @{@"key": @"profiles.enabled", @"title": @"首页与合集独立配置"},
@@ -143,22 +146,65 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
     return sections;
 }
 @implementation HGSettingsController
+- (NSArray<NSArray<NSDictionary *> *> *)settingsRows {
+    NSArray *all = HGAllRows();
+    if ([self.settingsPage isEqualToString:@"home"]) return @[all[1], all[3], all[4], [all[6] subarrayWithRange:NSMakeRange(1, [all[6] count] - 1)]];
+    if ([self.settingsPage isEqualToString:@"detail"]) {
+        NSMutableArray *right = [NSMutableArray array], *caption = [NSMutableArray array], *viewing = [NSMutableArray array];
+        for (NSDictionary *row in all[7]) {
+            if ([row[@"key"] hasPrefix:@"detail.right."]) [right addObject:row];
+            else if ([row[@"key"] hasPrefix:@"detail.caption."]) [caption addObject:row];
+            else [viewing addObject:row];
+        }
+        return @[right, caption, viewing];
+    }
+    if ([self.settingsPage isEqualToString:@"tab"]) return @[all[2]];
+    if ([self.settingsPage isEqualToString:@"other"]) return @[all[5]];
+    return @[all[0], @[
+        @{@"title": HGBool(@"profiles.enabled") ? @"首页观影设置" : @"通用观影设置", @"action": @"page.home"},
+        @{@"key": @"profiles.enabled", @"title": @"首页与合集独立配置"},
+        @{@"title": @"合集观影设置", @"action": @"page.detail", @"disabled": @(!HGBool(@"profiles.enabled"))},
+        @{@"key": @"landscape.enabled", @"title": @"补充原生横屏入口"}
+    ], @[
+        @{@"title": @"底栏设置（诊断）", @"action": @"page.tab"},
+        @{@"title": @"诊断与重置", @"action": @"page.other"}
+    ]];
+}
+- (NSString *)pageTitle {
+    if ([self.settingsPage isEqualToString:@"home"]) return HGBool(@"profiles.enabled") ? @"首页观影设置" : @"通用观影设置";
+    if ([self.settingsPage isEqualToString:@"detail"]) return @"合集观影设置";
+    if ([self.settingsPage isEqualToString:@"tab"]) return @"底栏设置（诊断）";
+    if ([self.settingsPage isEqualToString:@"other"]) return @"诊断与重置";
+    return @"hgkiller";
+}
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"hgkiller";
+    self.title = [self pageTitle];
     self.tableView.backgroundColor = UIColor.systemGroupedBackgroundColor;
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(preferencesChanged:) name:HGPreferencesDidChangeNotification object:nil];
 }
 - (void)dealloc { [NSNotificationCenter.defaultCenter removeObserver:self]; }
-- (void)preferencesChanged:(NSNotification *)note { [self.tableView reloadData]; }
-- (void)viewWillAppear:(BOOL)animated { [super viewWillAppear:animated]; [self.tableView reloadData]; }
+- (void)preferencesChanged:(NSNotification *)note { self.title = [self pageTitle]; [self.tableView reloadData]; }
+- (void)viewWillAppear:(BOOL)animated { [super viewWillAppear:animated]; self.title = [self pageTitle]; [self.tableView reloadData]; }
 - (void)close { [self dismissViewControllerAnimated:YES completion:nil]; }
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return HGRows().count; }
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return HGRows()[section].count; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return [self settingsRows].count; }
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return [self settingsRows][section].count; }
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    return @[@"观影增强", @"右侧控件（首页/通用）", @"原生底栏", @"顶部文字", @"播放页文案（首页/通用）", @"其他", @"纯净模式与遮罩（首页/通用）", @"合集独立设置"][section];
+    if ([self.settingsPage isEqualToString:@"home"]) return @[@"右侧控件", @"顶部文字", @"播放文案", @"纯净模式与遮罩"][section];
+    if ([self.settingsPage isEqualToString:@"detail"]) return @[@"右侧控件", @"播放文案", @"纯净模式与遮罩"][section];
+    if (self.settingsPage.length) return [self pageTitle];
+    return @[@"观影增强", @"观影设置", @"其他"][section];
 }
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
+    if (!self.settingsPage.length) {
+        if (section == 0) return @"关闭总开关后恢复插件调整的显示状态。";
+        if (section == 1) return @"关闭独立配置时只需设置通用参数；开启后可分别设置首页与合集。补充横屏入口会调用当前视频的原生按钮事件，能否进入横屏仍由红果播放器决定。";
+        return @"hgkiller 0.1.20 · 原设置保留";
+    }
+    if ([self.settingsPage isEqualToString:@"detail"]) return HGBool(@"profiles.enabled") ? @"仅影响合集播放页，保留首页设置。" : @"请先返回首页开启独立配置。";
+    if ([self.settingsPage isEqualToString:@"home"]) section = [@[@1, @3, @4, @6][section] unsignedIntegerValue];
+    else if ([self.settingsPage isEqualToString:@"tab"]) section = 2;
+    else section = 5;
     switch (section) {
         case 0: return @"关闭后恢复 hgkiller 调整的布局。本版本暂时停用布局保护。";
         case 1: return @"关闭某项后自动收紧排列；大小 55%–100%，间距 0–24 pt。首次显示与后续布局统一应用。";
@@ -167,14 +213,14 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         case 4: return @"剧名与集数、简介、展开分别调整为原字号的 55%–100%。默认原字号，不修改文案容器位置。";
         case 6: return @"纯净模式默认保留观看全集入口，关闭后恢复宿主显示状态。遮罩强度 0%–100%，仅降低原渐变透明度。关闭独立配置时，通用设置同时作用于首页和合集。";
         case 7: return @"开启独立配置后生效；首次开启会复制当前通用设置，再允许单独调整合集的控件、文案、纯净模式与遮罩。顶部分类仅在首页设置。";
-        default: return @"hgkiller 0.1.19 · 红果短剧 7.3.9 适配";
+        default: return @"hgkiller 0.1.20 · 红果短剧 7.3.9 适配";
     }
 }
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)path {
-    return [HGRows()[path.section][path.row][@"slider"] boolValue] ? 84.0 : 50.0;
+    return [[self settingsRows][path.section][path.row][@"slider"] boolValue] ? 84.0 : 50.0;
 }
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)path {
-    NSDictionary *row = HGRows()[path.section][path.row];
+    NSDictionary *row = [self settingsRows][path.section][path.row];
     UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:nil];
     cell.selectionStyle = UITableViewCellSelectionStyleNone;
     cell.textLabel.text = row[@"title"];
@@ -203,6 +249,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
     } else {
         cell.selectionStyle = UITableViewCellSelectionStyleDefault;
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        if ([row[@"disabled"] boolValue]) { cell.selectionStyle = UITableViewCellSelectionStyleNone; cell.textLabel.textColor = UIColor.secondaryLabelColor; }
         if ([row[@"action"] isEqualToString:@"reset"]) cell.textLabel.textColor = UIColor.systemRedColor;
         if ([row[@"action"] isEqualToString:@"status"]) {
             cell.detailTextLabel.text = HGSettingsState();
@@ -212,12 +259,12 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
     return cell;
 }
 - (void)switchChanged:(UISwitch *)sender {
-    NSDictionary *row = HGRows()[sender.tag / 100][sender.tag % 100];
+    NSDictionary *row = [self settingsRows][sender.tag / 100][sender.tag % 100];
     HGWritePreference(row[@"key"], @(sender.on));
     sender.on = HGBool(row[@"key"]);
 }
 - (void)sliderChanged:(UISlider *)sender {
-    NSDictionary *row = HGRows()[sender.tag / 100][sender.tag % 100];
+    NSDictionary *row = [self settingsRows][sender.tag / 100][sender.tag % 100];
     BOOL points = [row[@"unit"] isEqualToString:@"pt"];
     CGFloat value = points ? round(sender.value) : round(sender.value * 100.0) / 100.0;
     sender.value = value;
@@ -227,16 +274,28 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
 }
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)path {
     [tableView deselectRowAtIndexPath:path animated:YES];
-    NSString *action = HGRows()[path.section][path.row][@"action"];
+    NSDictionary *row = [self settingsRows][path.section][path.row];
+    if ([row[@"disabled"] boolValue]) return;
+    NSString *action = row[@"action"];
     if (!action) return;
-    if ([action isEqualToString:@"heightLog"]) {
-        UIViewController *detail = [UIViewController new]; detail.title = @"高度诊断记录";
+    if ([action hasPrefix:@"page."]) {
+        HGSettingsController *page = [[HGSettingsController alloc] initWithStyle:UITableViewStyleInsetGrouped]; page.settingsPage = [action substringFromIndex:5];
+        if (self.navigationController) [self.navigationController pushViewController:page animated:YES];
+        else {
+            page.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:page action:@selector(close)];
+            [self presentViewController:[[UINavigationController alloc] initWithRootViewController:page] animated:YES completion:nil];
+        }
+        return;
+    }
+    if ([action isEqualToString:@"heightLog"] || [action isEqualToString:@"landscapeLog"]) {
+        BOOL landscape = [action isEqualToString:@"landscapeLog"];
+        UIViewController *detail = [UIViewController new]; detail.title = landscape ? @"横屏入口诊断" : @"高度诊断记录";
         UITextView *text = [[UITextView alloc] initWithFrame:detail.view.bounds];
         text.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         text.editable = NO; text.selectable = YES; text.alwaysBounceVertical = YES;
         text.backgroundColor = UIColor.systemBackgroundColor;
         text.font = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightRegular];
-        text.textContainerInset = UIEdgeInsetsMake(16, 16, 16, 16); text.text = HGHeightDiagnosticText();
+        text.textContainerInset = UIEdgeInsetsMake(16, 16, 16, 16); text.text = landscape ? HGLandscapeDiagnosticText() : HGHeightDiagnosticText();
         [detail.view addSubview:text];
         if (self.navigationController) [self.navigationController pushViewController:detail animated:YES];
         else {
@@ -266,7 +325,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         message = [message stringByAppendingFormat:@"\n\n当前状态：%@\n布局保护：暂时停用", HGSettingsState()];
         message = [message stringByAppendingFormat:@"\n实际高度调整：%@\n设置高度：%.0f pt", HGBool(@"tab.layout.enabled") ? @"开启" : @"关闭", HGNumber(@"tab.appearance.height")];
         if (HGSafetyReason().length) message = [message stringByAppendingFormat:@"\n\n上次保护记录（历史）：%@", HGSafetyReason()];
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.19"
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.20"
                                                                       message:message preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:alert animated:YES completion:nil];
@@ -282,10 +341,23 @@ static UITableView *HGFindSettingsTable(UIView *root) {
     }
     return nil;
 }
+static HGSettingsHeader *HGFindExistingSettingsHeader(UIView *view) {
+    if ([view isKindOfClass:HGSettingsHeader.class]) return (id)view;
+    for (UIView *child in view.subviews) {
+        HGSettingsHeader *found = HGFindExistingSettingsHeader(child); if (found) return found;
+    }
+    return nil;
+}
 static void HGInsertSettingsEntry(UIViewController *controller) {
     UITableView *table = HGFindSettingsTable(controller.view);
     if (!table) return;
     HGSettingsHeader *header = objc_getAssociatedObject(table, &HGHeaderKey);
+    HGSettingsHeader *existing = HGFindExistingSettingsHeader(table.tableHeaderView);
+    if (existing) {
+        existing.presenter = controller; header = existing;
+        objc_setAssociatedObject(table, &HGHeaderKey, existing, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        if (table.tableHeaderView != existing) return; // Host wrapped or reused an existing entry.
+    }
     if (table.tableHeaderView != header || !header) {
         UIView *previous = table.tableHeaderView;
         header = [[HGSettingsHeader alloc] initWithPresenter:controller previous:previous];

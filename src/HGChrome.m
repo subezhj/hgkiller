@@ -172,7 +172,7 @@ void HGInstallChrome(void) {
             HGTrackRight(container);
         };
     });
-    HGHookControllerLayout(@"FQVShortVideoListViewController", ^(UIViewController *controller) { HGFindRightContainers(controller.view); });
+    HGHookControllerLayout(@"FQVShortVideoListViewController", ^(UIViewController *controller) { HGFindRightContainers(controller.view); HGRefreshLandscape(controller); });
     SEL moved = @selector(didMoveToWindow);
     HGInstall(NSClassFromString(@"SSShortVideoRightInteractionView"), moved, ^id(IMP original) {
         return ^(UIView *container) { ((void (*)(id, SEL))original)(container, moved); HGTrackRight(container); };

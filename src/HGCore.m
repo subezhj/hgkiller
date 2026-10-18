@@ -25,7 +25,7 @@ static NSDictionary *HGDefaults(void) {
         @"video.fillPortrait": @NO,
         @"caption.enabled": @YES, @"caption.titleScale": @1.0, @"caption.descriptionScale": @1.0,
         @"top.enabled": @YES, @"top.scale": @0.85,
-        @"profiles.enabled": @NO,
+        @"profiles.enabled": @NO, @"landscape.enabled": @NO,
         @"clean.enabled": @NO, @"clean.right": @YES, @"clean.caption": @YES, @"clean.header": @YES, @"clean.distribution": @NO,
         @"shade.enabled": @NO, @"shade.top": @1.0, @"shade.bottom": @1.0
     } mutableCopy];
@@ -225,6 +225,7 @@ void HGHookFrame(NSString *name, CGRect (^adjust)(UIView *, CGRect)) {
     });
 }
 static void HGMarkTargets(UIView *view) {
+    if (HGIsClass(view.nextResponder, @"FQVShortVideoListViewController")) HGRefreshLandscape((id)view.nextResponder);
     for (NSString *name in @[@"SSShortVideoRightInteractionView", @"SSTabBar", @"SSTabBarTextButton",
                             @"SSVideoSeriesFeedHeaderView", @"SSShortVideoOutterSeriesLeftContainerView", @"SSShortVideoSingleSeriesInfoLeftContainerView",
                             @"SSShortVideoBottomDistributionView", @"FQVShortVideoGradientLayerView"]) {

@@ -11,7 +11,7 @@ static NSMutableDictionary<NSString *, HGHeightBurst *> *HGHeightBursts;
 static NSString *HGHeightTraceKey(void) { return [HGPreferencePrefix stringByAppendingString:@"height.lastTrace"]; }
 void HGHeightBeginAttempt(void) {
     HGHeightBursts = [NSMutableDictionary dictionary];
-    NSString *message = [NSString stringWithFormat:@"hgkiller 0.1.19 · 仅底栏诊断\n时间：%@\n高度：%.0f pt\n播放列表、分页、播放器尺寸保持原生。\n布局诊断只记录，不会自动关闭功能。", NSDate.date, HGNumber(@"tab.appearance.height")];
+    NSString *message = [NSString stringWithFormat:@"hgkiller 0.1.20 · 仅底栏诊断\n时间：%@\n高度：%.0f pt\n播放列表、分页、播放器尺寸保持原生。\n布局诊断只记录，不会自动关闭功能。", NSDate.date, HGNumber(@"tab.appearance.height")];
     [NSUserDefaults.standardUserDefaults setObject:message forKey:[HGPreferencePrefix stringByAppendingString:@"height.lastAttempt"]];
     [NSUserDefaults.standardUserDefaults synchronize];
 }
@@ -33,7 +33,7 @@ void HGRecordHeightLayout(id object, SEL selector) {
     UIView *view = [object isKindOfClass:UIView.class] ? object : nil;
     NSArray<NSString *> *symbols = NSThread.callStackSymbols;
     if (symbols.count > 24) symbols = [symbols subarrayWithRange:NSMakeRange(0, 24)];
-    NSString *trace = [NSString stringWithFormat:@"hgkiller 0.1.19 · 仅底栏诊断\n时间：%@\n%@ 在 250 ms 内进入 %lu 次\nframe：%@\nbounds：%@\n\n%@",
+    NSString *trace = [NSString stringWithFormat:@"hgkiller 0.1.20 · 仅底栏诊断\n时间：%@\n%@ 在 250 ms 内进入 %lu 次\nframe：%@\nbounds：%@\n\n%@",
                        NSDate.date, key, (unsigned long)burst.count, view ? NSStringFromCGRect(view.frame) : @"控制器", view ? NSStringFromCGRect(view.bounds) : @"控制器", [symbols componentsJoinedByString:@"\n"]];
     // Capture once per method per attempt. No setNeedsLayout, frame writes, or pause/disable action.
     [NSUserDefaults.standardUserDefaults setObject:trace forKey:HGHeightTraceKey()];

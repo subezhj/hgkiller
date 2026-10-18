@@ -38,3 +38,5 @@ FOUNDATION_EXPORT NSString *HGHeightDiagnosticText(void);
 FOUNDATION_EXPORT NSString *HGViewingKey(UIView *view, NSString *key);
 FOUNDATION_EXPORT BOOL HGViewingHides(UIView *view, NSString *group);
 FOUNDATION_EXPORT void HGApplyViewing(UIView *view);
+FOUNDATION_EXPORT void HGRefreshLandscape(UIViewController *controller);
+FOUNDATION_EXPORT NSString *HGLandscapeDiagnosticText(void);

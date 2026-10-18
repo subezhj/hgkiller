@@ -40,6 +40,8 @@ static void HGWriteProgress(NSInteger phase) {
 }
 @interface SSRootViewController : UIViewController @end
 @implementation SSRootViewController @end
+@interface SSSettingViewController : UITableViewController @end
+@implementation SSSettingViewController @end
 @interface SSVideoSeriesFeedViewController : UIViewController @end
 @implementation SSVideoSeriesFeedViewController @end
 @interface FQVShortVideoListViewController : UIViewController @end
@@ -78,6 +80,16 @@ static void HGWriteProgress(NSInteger phase) {
 @implementation FQVShortVideoVPlayerOutterMultiSeriesControlView @end
 @interface FQVPlayer : UIView @end
 @implementation FQVPlayer @end
+static NSUInteger HGLandscapeCalls, HGLandscapeWrongCalls, HGLandscapeExitCalls;
+@interface SSFixtureLandscapeTarget : NSObject
+@property(nonatomic) BOOL offscreen;
+- (void)enterFullScreen:(id)sender;
+- (void)exitFullScreen:(id)sender;
+@end
+@implementation SSFixtureLandscapeTarget
+- (void)enterFullScreen:(id)sender { if (self.offscreen) HGLandscapeWrongCalls++; else HGLandscapeCalls++; }
+- (void)exitFullScreen:(id)sender { HGLandscapeExitCalls++; }
+@end
 
 @interface HGFixtureLayout : UICollectionViewLayout @end
 @implementation HGFixtureLayout
@@ -379,11 +391,12 @@ static UIView *HGFixtureDramaContainer;
 }
 - (void)checkSliderMargins {
     UITableViewController *settings = [self makeSettings];
-    UITableViewCell *cell = [settings tableView:settings.tableView cellForRowAtIndexPath:[NSIndexPath indexPathForRow:5 inSection:1]];
+    [settings setValue:@"home" forKey:@"settingsPage"];
+    UITableViewCell *cell = [settings tableView:settings.tableView cellForRowAtIndexPath:[NSIndexPath indexPathForRow:5 inSection:0]];
     for (NSNumber *width in @[@280, @370, @500]) {
         cell.frame = CGRectMake(0, 0, width.doubleValue, 84);
         [cell setNeedsLayout]; [cell layoutIfNeeded]; [cell.contentView layoutIfNeeded];
-        UISlider *slider = (id)[cell.contentView viewWithTag:105];
+        UISlider *slider = (id)[cell.contentView viewWithTag:5];
         HGCheck(slider != nil, @"Slider cell not configured");
         HGCheck(CGRectGetMinX(slider.frame) >= 15.7 && CGRectGetMaxX(slider.frame) <= CGRectGetWidth(cell.contentView.bounds) - 15.7, @"Slider overflowed card");
     }
@@ -496,7 +509,8 @@ static UIView *HGFixtureDramaContainer;
             HGCheck(closeTo(detailTitle.font.pointSize, 12.6) && closeTo(HGFixtureDramaTitle.font.pointSize, 18), @"Detail caption scale did not stay independent");
             UIView *cleanHeader = [[SSVideoSeriesFeedHeaderView alloc] initWithFrame:CGRectMake(0, 62, 300, 44)]; [self.fixture.feed.view addSubview:cleanHeader];
             UITableViewController *viewingSettings = [self makeSettings];
-            UISwitch *cleanSwitch = (id)[viewingSettings tableView:viewingSettings.tableView cellForRowAtIndexPath:[NSIndexPath indexPathForRow:1 inSection:6]].accessoryView;
+            [viewingSettings setValue:@"home" forKey:@"settingsPage"];
+            UISwitch *cleanSwitch = (id)[viewingSettings tableView:viewingSettings.tableView cellForRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:3]].accessoryView;
             cleanSwitch.on = YES; [cleanSwitch sendActionsForControlEvents:UIControlEventValueChanged];
             HGApplyViewing(self.fixture.right); HGApplyViewing(HGFixtureDramaContainer); HGApplyViewing(cleanHeader); HGApplyViewing(detailRight); HGApplyViewing(HGFixtureBottom);
             HGCheck(self.fixture.right.hidden && HGFixtureDramaContainer.hidden && cleanHeader.hidden, @"Pure mode did not hide configured home overlays");
@@ -538,6 +552,27 @@ static UIView *HGFixtureDramaContainer;
             HGCheck(HGUnitClose(bottomShade.alpha, 0), @"Disabling shade revived a host-faded overlay");
             bottomShade.alpha = 0.6;
             [cleanHeader removeFromSuperview]; [detailCaption removeFromSuperview]; [topShade removeFromSuperview]; [bottomShade removeFromSuperview]; [detailShade removeFromSuperview];
+            SSFixtureLandscapeTarget *nativeTarget = [SSFixtureLandscapeTarget new], *wrongTarget = [SSFixtureLandscapeTarget new]; wrongTarget.offscreen = YES;
+            UIView *offscreenCell = [[FQVShortVideoCell alloc] initWithFrame:CGRectMake(0, 1000, 402, 784)];
+            [detail.view insertSubview:offscreenCell atIndex:0];
+            UIButton *wrongNative = [UIButton buttonWithType:UIButtonTypeSystem]; wrongNative.frame = CGRectMake(0, 0, 72, 32);
+            [wrongNative addTarget:wrongTarget action:@selector(enterFullScreen:) forControlEvents:UIControlEventTouchUpInside]; [offscreenCell addSubview:wrongNative];
+            UIButton *exitNative = [UIButton buttonWithType:UIButtonTypeSystem]; exitNative.frame = CGRectMake(0, 110, 72, 32);
+            [exitNative setTitle:@"退出全屏" forState:UIControlStateNormal]; [exitNative addTarget:nativeTarget action:@selector(exitFullScreen:) forControlEvents:UIControlEventTouchUpInside];
+            [detail.view addSubview:exitNative];
+            UIButton *native = [UIButton buttonWithType:UIButtonTypeSystem]; native.frame = CGRectMake(0, 150, 72, 32); native.hidden = YES;
+            [native addTarget:nativeTarget action:@selector(enterFullScreen:) forControlEvents:UIControlEventTouchUpInside]; [detail.view addSubview:native];
+            HGCheck(!HGBool(@"landscape.enabled"), @"Native landscape entry enabled by default");
+            HGWritePreference(@"landscape.enabled", @YES); HGRefreshLandscape(detail);
+            UIButton *proxy = (id)[detail.view viewWithTag:0x48474C];
+            HGCheck(proxy && !proxy.hidden, @"Hidden native landscape button did not gain a supplementary entry");
+            [proxy sendActionsForControlEvents:UIControlEventTouchUpInside];
+            HGCheck(HGLandscapeCalls == 1 && HGLandscapeWrongCalls == 0 && HGLandscapeExitCalls == 0, @"Landscape forwarded to exit action or a different video");
+            HGCheck(native.hidden, @"Supplementary action changed native control visibility");
+            native.hidden = NO; HGRefreshLandscape(detail); HGCheck(proxy.hidden, @"Visible native landscape button was duplicated");
+            HGWritePreference(@"landscape.enabled", @NO); HGRefreshLandscape(detail);
+            HGCheck(![detail.view viewWithTag:0x48474C], @"Disabling native landscape entry left an overlay");
+            [offscreenCell removeFromSuperview]; [exitNative removeFromSuperview]; [native removeFromSuperview];
             [detail.view removeFromSuperview]; [detail removeFromParentViewController];
             HGCheck(!HGFixtureBottomImage.hidden && !HGFixtureBottomBlur.hidden, @"Native distribution background was modified");
             HGCheck([HGFixtureBottom.backgroundColor isEqual:UIColor.grayColor] && [HGFixtureBottomParent.backgroundColor isEqual:UIColor.grayColor], @"Native distribution color changed");
@@ -545,6 +580,18 @@ static UIView *HGFixtureDramaContainer;
             HGCheck(!HGFixtureIcon.hidden && !HGFixtureBottomLabel.hidden, @"Bottom cleanup removed navigation content");
             [self checkTabHeight:50];
             [self checkSettingsState:@"正在运行"]; [self checkSliderMargins];
+            UITableViewController *settingsRoot = [self makeSettings];
+            HGCheck([settingsRoot numberOfSectionsInTableView:settingsRoot.tableView] == 3 && [settingsRoot tableView:settingsRoot.tableView numberOfRowsInSection:1] == 4, @"Settings root still expands repeated profile controls");
+            UINavigationController *settingsNav = [[UINavigationController alloc] initWithRootViewController:settingsRoot];
+            [settingsRoot tableView:settingsRoot.tableView didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:1]];
+            HGCheck(settingsNav.viewControllers.count == 2 && [[settingsNav.topViewController valueForKey:@"settingsPage"] isEqual:@"home"], @"Settings category failed to open its subpage");
+            SSSettingViewController *nativeSettings = [[SSSettingViewController alloc] initWithStyle:UITableViewStyleInsetGrouped];
+            [nativeSettings viewDidLayoutSubviews]; UIView *originalEntry = nativeSettings.tableView.tableHeaderView;
+            HGCheck(originalEntry && [NSStringFromClass(originalEntry.class) isEqualToString:@"HGSettingsHeader"], @"Native settings entry missing");
+            UIView *hostWrapper = [[UIView alloc] initWithFrame:originalEntry.frame]; [hostWrapper addSubview:originalEntry];
+            nativeSettings.tableView.tableHeaderView = hostWrapper;
+            [nativeSettings viewDidLayoutSubviews]; [nativeSettings viewDidLayoutSubviews];
+            HGCheck(nativeSettings.tableView.tableHeaderView == hostWrapper && originalEntry.superview == hostWrapper, @"Reused native settings header gained a repeated plugin entry");
             HGCheck(method_getImplementation(class_getInstanceMethod(SSTabBarTextButton.class, @selector(setFrame:))) == HGButtonFrameBeforeLoad, @"Native tab frame method was hooked");
             CGFloat height = self.fixture.collection.superview.bounds.size.height - 90;
             HGCheck(closeTo(self.fixture.collection.bounds.size.height, height), @"Hotfix changed the native feed viewport");
