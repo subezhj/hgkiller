@@ -35,3 +35,6 @@ FOUNDATION_EXPORT NSString *const HGPreferencesDidChangeNotification;
 FOUNDATION_EXPORT void HGHeightBeginAttempt(void);
 FOUNDATION_EXPORT void HGRecordHeightLayout(id object, SEL selector);
 FOUNDATION_EXPORT NSString *HGHeightDiagnosticText(void);
+FOUNDATION_EXPORT NSString *HGViewingKey(UIView *view, NSString *key);
+FOUNDATION_EXPORT BOOL HGViewingHides(UIView *view, NSString *group);
+FOUNDATION_EXPORT void HGApplyViewing(UIView *view);

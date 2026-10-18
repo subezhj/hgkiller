@@ -73,11 +73,11 @@ static NSArray<UIView *> *HGRightItems(UIView *container) {
 }
 static BOOL HGRightHidden(UIView *view) {
     HGRightState *state = HGRightStateFor(view);
-    return state.hostHidden || (HGEnabled() && HGInVideoControls(view) && !HGBool(HGRightKey(view)));
+    return state.hostHidden || (HGEnabled() && HGInVideoControls(view) && !HGBool(HGViewingKey(view, HGRightKey(view))));
 }
 static CGPoint HGRightVisualCenter(UIView *item) {
     UIView *container = item.superview;
-    CGFloat scale = HGNumber(@"right.scale"), gap = HGNumber(@"right.gap"), total = 0;
+    CGFloat scale = HGNumber(HGViewingKey(item, @"right.scale")), gap = HGNumber(HGViewingKey(item, @"right.gap")), total = 0;
     NSArray *items = HGRightItems(container);
     for (UIView *view in items) if (!HGRightHidden(view)) total += HGRightOccupiedHeight(view) * scale + gap;
     total = MAX(0, total - gap);
@@ -99,7 +99,7 @@ static void HGApplyRightItem(UIView *item) {
     CGPoint center = active ? HGRightVisualCenter(item) : CGPointMake(CGRectGetMidX(state.nativeFrame), CGRectGetMidY(state.nativeFrame));
     CGAffineTransform target = state.hostTransform;
     if (active) {
-        CGFloat scale = HGNumber(@"right.scale");
+        CGFloat scale = HGNumber(HGViewingKey(item, @"right.scale"));
         target = CGAffineTransformConcat(state.hostTransform, CGAffineTransformMake(scale, 0, 0, scale,
             center.x - item.center.x, center.y - item.center.y));
     }
@@ -120,6 +120,7 @@ static void HGRestoreRightTransform(UIView *item) {
 }
 static NSHashTable<UIView *> *HGRightContainers;
 static void HGTrackRight(UIView *container) {
+    HGApplyViewing(container);
     if (!HGRightContainers) HGRightContainers = [NSHashTable weakObjectsHashTable];
     [HGRightContainers addObject:container];
     for (UIView *item in HGRightItems(container)) HGApplyRightItem(item);
@@ -218,13 +219,14 @@ void HGInstallChrome(void) {
     SEL hitSelector = @selector(hitTest:withEvent:);
     HGInstall(NSClassFromString(@"SSShortVideoRightInteractionView"), hitSelector, ^id(IMP original) {
         return ^UIView *(UIView *container, CGPoint point, UIEvent *event) {
+            if (HGViewingHides(container, @"right")) return nil;
             if (HGEnabled() && HGInVideoControls(container) && !container.hidden && container.alpha > 0.01 && container.userInteractionEnabled && [container pointInside:point withEvent:event]) {
                 UIView *nearest = nil; CGFloat distance = CGFLOAT_MAX;
                 for (UIView *item in HGRightItems(container)) if (!HGRightHidden(item) && item.userInteractionEnabled && item.alpha > 0.01) {
                     CGFloat d = fabs(point.y - HGRightVisualCenter(item).y);
                     if (d < distance) { nearest = item; distance = d; }
                 }
-                if (nearest && distance <= MAX(22, nearest.bounds.size.height * HGNumber(@"right.scale") / 2)) {
+                if (nearest && distance <= MAX(22, nearest.bounds.size.height * HGNumber(HGViewingKey(nearest, @"right.scale")) / 2)) {
                     // UIKit converts through the actual view transform, including scale and translation.
                     CGPoint local = [nearest convertPoint:point fromView:container];
                     return [nearest hitTest:local withEvent:event];
@@ -273,7 +275,7 @@ void HGInstallChrome(void) {
         };
     });
     HGHookLayout(@"SSHGBookStoreCategoryTitleCell", ^(UIView *view) { if (HGInHeader(view)) HGScaleHeaderFonts(view); });
-    HGHookLayout(@"SSVideoSeriesFeedHeaderView", ^(UIView *view) { HGScaleHeaderFonts(view); });
+    HGHookLayout(@"SSVideoSeriesFeedHeaderView", ^(UIView *view) { HGScaleHeaderFonts(view); HGApplyViewing(view); });
     HGHookLayout(@"FQRJXCategoryCollectionView", ^(UIView *view) { if (HGInHeader(view)) HGScaleHeaderFonts(view); });
 }
 

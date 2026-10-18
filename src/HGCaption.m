@@ -22,8 +22,8 @@ BOOL HGHandleCaptionFont(UIView *view, UIFont *font, void (^apply)(UIFont *)) {
     HGCaptionState *state = objc_getAssociatedObject(view, &HGCaptionKey);
     if (!state) { state = [HGCaptionState new]; objc_setAssociatedObject(view, &HGCaptionKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
     if (![font isEqual:state.applied]) state.host = font;
-    BOOL active = HGEnabled() && HGBool(@"caption.enabled");
-    UIFont *output = active ? [state.host fontWithSize:MAX(9, state.host.pointSize * HGNumber(key))] : state.host;
+    BOOL active = HGEnabled() && HGBool(HGViewingKey(view, @"caption.enabled"));
+    UIFont *output = active ? [state.host fontWithSize:MAX(9, state.host.pointSize * HGNumber(HGViewingKey(view, key)))] : state.host;
     state.applied = active ? output : nil;
     UIFont *current = ((UIFont *(*)(id, SEL))objc_msgSend)(view, @selector(font));
     if (![current isEqual:output]) apply(output);
@@ -38,7 +38,7 @@ static void HGCaptionFonts(UIView *view) {
 }
 void HGInstallCaption(void) {
     for (NSString *name in @[@"SSShortVideoOutterSeriesLeftContainerView", @"SSShortVideoSingleSeriesInfoLeftContainerView"])
-        HGHookLayout(name, ^(UIView *view) { HGCaptionFonts(view); });
+        HGHookLayout(name, ^(UIView *view) { HGCaptionFonts(view); HGApplyViewing(view); });
     SEL setter = @selector(setFont:);
     HGInstall(NSClassFromString(@"YYLabel"), setter, ^id(IMP original) {
         return ^(UIView *view, UIFont *font) {

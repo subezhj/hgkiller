@@ -16,7 +16,7 @@ static char HGFrameKey;
 @end
 
 static NSDictionary *HGDefaults(void) {
-    return @{
+    NSMutableDictionary *defaults = [@{
         @"enabled": @YES,
         @"right.avatar": @YES, @"right.collect": @YES,
         @"right.comment": @YES, @"right.like": @YES, @"right.share": @YES,
@@ -24,8 +24,15 @@ static NSDictionary *HGDefaults(void) {
         @"tab.textScale": @1.0, @"tab.appearance.enabled": @NO, @"tab.layout.enabled": @NO, @"tab.appearance.height": @84.0, @"video.extend": @NO,
         @"video.fillPortrait": @NO,
         @"caption.enabled": @YES, @"caption.titleScale": @1.0, @"caption.descriptionScale": @1.0,
-        @"top.enabled": @YES, @"top.scale": @0.85
-    };
+        @"top.enabled": @YES, @"top.scale": @0.85,
+        @"profiles.enabled": @NO,
+        @"clean.enabled": @NO, @"clean.right": @YES, @"clean.caption": @YES, @"clean.header": @YES, @"clean.distribution": @NO,
+        @"shade.enabled": @NO, @"shade.top": @1.0, @"shade.bottom": @1.0
+    } mutableCopy];
+    for (NSString *key in defaults.allKeys.copy)
+        if ([key hasPrefix:@"right."] || [key hasPrefix:@"caption."] || [key hasPrefix:@"clean."] || [key hasPrefix:@"shade."])
+            defaults[[@"detail." stringByAppendingString:key]] = defaults[key];
+    return defaults;
 }
 static void HGReloadPreferences(void) {
     NSMutableDictionary *values = [HGDefaults() mutableCopy];
@@ -41,6 +48,15 @@ static void HGReloadPreferences(void) {
     values[@"tab.appearance.height"] = @(isfinite(appearanceHeight) ? MAX(62, MIN(84, appearanceHeight)) : 84);
     double gap = [values[@"right.gap"] doubleValue]; values[@"right.gap"] = @(isfinite(gap) ? MAX(0, MIN(24, gap)) : 6);
     double text = [values[@"tab.textScale"] doubleValue]; values[@"tab.textScale"] = @(isfinite(text) ? MAX(0.55, MIN(1.2, text)) : 1);
+    for (NSString *key in values.allKeys.copy) {
+        NSString *base = [key hasPrefix:@"detail."] ? [key substringFromIndex:7] : key;
+        double value = [values[key] doubleValue];
+        if ([base isEqualToString:@"right.scale"] || ([base hasPrefix:@"caption."] && [base hasSuffix:@"Scale"]))
+            values[key] = @(isfinite(value) ? MAX(0.55, MIN(1, value)) : [HGDefaults()[key] doubleValue]);
+        if ([base isEqualToString:@"right.gap"]) values[key] = @(isfinite(value) ? MAX(0, MIN(24, value)) : 6);
+        if ([base isEqualToString:@"shade.top"] || [base isEqualToString:@"shade.bottom"])
+            values[key] = @(isfinite(value) ? MAX(0, MIN(1, value)) : 1);
+    }
     // Do not honor old saved fullscreen values in this hotfix; the corresponding hooks are absent.
     values[@"video.extend"] = @NO;
     values[@"video.fillPortrait"] = @NO;
@@ -78,6 +94,13 @@ CGFloat HGNumber(NSString *key) { return [HGPreferences[key] doubleValue]; }
 
 void HGWritePreference(NSString *key, id value) {
     if (!HGDefaults()[key] || ![value isKindOfClass:NSNumber.class]) return;
+    if ([key isEqualToString:@"profiles.enabled"] && [value boolValue]) {
+        for (NSString *detailKey in HGDefaults()) if ([detailKey hasPrefix:@"detail."]) {
+            NSString *stored = [HGPreferencePrefix stringByAppendingString:detailKey];
+            if (![NSUserDefaults.standardUserDefaults objectForKey:stored])
+                [NSUserDefaults.standardUserDefaults setObject:HGPreferences[[detailKey substringFromIndex:7]] forKey:stored];
+        }
+    }
     if ([key isEqualToString:@"enabled"] && [value boolValue]) {
         HGSafetyTripped = NO; HGMonitoringGeneration++; // Explicit user retry; keep historical reason.
     }
@@ -204,8 +227,8 @@ void HGHookFrame(NSString *name, CGRect (^adjust)(UIView *, CGRect)) {
 static void HGMarkTargets(UIView *view) {
     for (NSString *name in @[@"SSShortVideoRightInteractionView", @"SSTabBar", @"SSTabBarTextButton",
                             @"SSVideoSeriesFeedHeaderView", @"SSShortVideoOutterSeriesLeftContainerView", @"SSShortVideoSingleSeriesInfoLeftContainerView",
-                            @"SSShortVideoBottomDistributionView"]) {
-        if (HGIsClass(view, name)) { [view setNeedsLayout]; break; }
+                            @"SSShortVideoBottomDistributionView", @"FQVShortVideoGradientLayerView"]) {
+        if (HGIsClass(view, name)) { HGApplyViewing(view); [view setNeedsLayout]; break; }
     }
     for (UIView *child in view.subviews) HGMarkTargets(child);
 }

@@ -90,7 +90,7 @@ static NSString *HGSettingsState(void) {
 }
 
 static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
-    return @[
+    NSMutableArray *sections = [@[
         @[@{@"key": @"enabled", @"title": @"启用 hgkiller"},
           @{@"title": @"运行状态", @"action": @"status"}],
         @[
@@ -120,7 +120,27 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
           @{@"title": @"适配信息", @"action": @"diagnostics"},
           @{@"title": @"清除上次保护记录", @"action": @"clearSafety"},
           @{@"title": @"高度诊断记录", @"action": @"heightLog"}]
-    ];
+    ] mutableCopy];
+    [sections addObject:@[
+        @{@"key": @"profiles.enabled", @"title": @"首页与合集独立配置"},
+        @{@"key": @"clean.enabled", @"title": @"一键纯净模式"},
+        @{@"key": @"clean.right", @"title": @"纯净时隐藏右侧控件"},
+        @{@"key": @"clean.caption", @"title": @"纯净时隐藏剧名与简介"},
+        @{@"key": @"clean.header", @"title": @"纯净时隐藏顶部分类"},
+        @{@"key": @"clean.distribution", @"title": @"纯净时隐藏观看全集入口"},
+        @{@"key": @"shade.enabled", @"title": @"自定义渐变遮罩强度"},
+        @{@"key": @"shade.top", @"title": @"顶部遮罩强度", @"slider": @YES, @"min": @0, @"max": @1},
+        @{@"key": @"shade.bottom", @"title": @"底部遮罩强度", @"slider": @YES, @"min": @0, @"max": @1}
+    ]];
+    NSMutableArray *detailRows = [NSMutableArray array];
+    for (NSNumber *section in @[@1, @4, @6]) for (NSDictionary *row in sections[section.unsignedIntegerValue]) {
+        NSString *key = row[@"key"];
+        if ([key isEqualToString:@"profiles.enabled"] || [key isEqualToString:@"clean.header"]) continue;
+        NSMutableDictionary *detail = [row mutableCopy]; detail[@"key"] = [@"detail." stringByAppendingString:key];
+        detail[@"disabled"] = @(!HGBool(@"profiles.enabled")); [detailRows addObject:detail];
+    }
+    [sections addObject:detailRows];
+    return sections;
 }
 @implementation HGSettingsController
 - (void)viewDidLoad {
@@ -136,7 +156,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return HGRows().count; }
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return HGRows()[section].count; }
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    return @[@"观影增强", @"右侧控件", @"原生底栏", @"顶部文字", @"播放页文案", @"其他"][section];
+    return @[@"观影增强", @"右侧控件（首页/通用）", @"原生底栏", @"顶部文字", @"播放页文案（首页/通用）", @"其他", @"纯净模式与遮罩（首页/通用）", @"合集独立设置"][section];
 }
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     switch (section) {
@@ -145,7 +165,9 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         case 2: return @"诊断版只调整底栏，不扩展视频，不改分页或播放器；原播放占位仍保留，可能有空隙。每次启动默认关闭，方便卡住后重启查看诊断。记录不会自动停用功能。";
         case 3: return @"调整首页顶部分类与搜索文字，保留原来的入口。";
         case 4: return @"剧名与集数、简介、展开分别调整为原字号的 55%–100%。默认原字号，不修改文案容器位置。";
-        default: return @"hgkiller 0.1.18 · 红果短剧 7.3.9 适配";
+        case 6: return @"纯净模式默认保留观看全集入口，关闭后恢复宿主显示状态。遮罩强度 0%–100%，仅降低原渐变透明度。关闭独立配置时，通用设置同时作用于首页和合集。";
+        case 7: return @"开启独立配置后生效；首次开启会复制当前通用设置，再允许单独调整合集的控件、文案、纯净模式与遮罩。顶部分类仅在首页设置。";
+        default: return @"hgkiller 0.1.19 · 红果短剧 7.3.9 适配";
     }
 }
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)path {
@@ -162,7 +184,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         HGSliderCell *sliderCell = [[HGSliderCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:nil];
         cell = sliderCell; cell.selectionStyle = UITableViewCellSelectionStyleNone;
         sliderCell.caption.text = [NSString stringWithFormat:[row[@"unit"] isEqualToString:@"pt"] ? @"%@  %.0f pt" : @"%@  %.0f%%", row[@"title"], HGNumber(key) * ([row[@"unit"] isEqualToString:@"pt"] ? 1 : 100)];
-        sliderCell.caption.textColor = HGEnabled() ? UIColor.labelColor : UIColor.secondaryLabelColor;
+        sliderCell.caption.textColor = HGEnabled() && ![row[@"disabled"] boolValue] ? UIColor.labelColor : UIColor.secondaryLabelColor;
         UISlider *slider = sliderCell.slider;
         slider.minimumValue = row[@"min"] ? [row[@"min"] floatValue] : 0.55;
         slider.maximumValue = row[@"max"] ? [row[@"max"] floatValue] : 1.0;
@@ -244,7 +266,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGRows(void) {
         message = [message stringByAppendingFormat:@"\n\n当前状态：%@\n布局保护：暂时停用", HGSettingsState()];
         message = [message stringByAppendingFormat:@"\n实际高度调整：%@\n设置高度：%.0f pt", HGBool(@"tab.layout.enabled") ? @"开启" : @"关闭", HGNumber(@"tab.appearance.height")];
         if (HGSafetyReason().length) message = [message stringByAppendingFormat:@"\n\n上次保护记录（历史）：%@", HGSafetyReason()];
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.18"
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.19"
                                                                       message:message preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:alert animated:YES completion:nil];

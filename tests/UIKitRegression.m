@@ -25,6 +25,7 @@ static void HGCheck(BOOL condition, NSString *message) {
 }
 static BOOL closeTo(CGFloat a, CGFloat b) { return fabs(a - b) < 0.3; }
 
+static BOOL HGUnitClose(CGFloat a, CGFloat b) { return fabs(a - b) < 0.001; }
 static CGFloat HGVisualY(UIView *view) { return [view.superview convertPoint:CGPointMake(CGRectGetMidX(view.bounds), CGRectGetMidY(view.bounds)) fromView:view].y; }
 static BOOL rectClose(CGRect a, CGRect b) {
     return fabs(a.origin.x - b.origin.x) < 0.01 && fabs(a.origin.y - b.origin.y) < 0.01 &&
@@ -47,6 +48,10 @@ static void HGWriteProgress(NSInteger phase) {
 @implementation SSVideoSeriesFeedHeaderView @end
 @interface SSShortVideoOutterSeriesLeftContainerView : UIView @end
 @implementation SSShortVideoOutterSeriesLeftContainerView @end
+@interface SSShortVideoSingleSeriesInfoLeftContainerView : UIView @end
+@implementation SSShortVideoSingleSeriesInfoLeftContainerView @end
+@interface FQVShortVideoGradientLayerView : UIView @end
+@implementation FQVShortVideoGradientLayerView @end
 @interface YYLabel : UIView
 @property(nonatomic, strong) UIFont *font;
 @end
@@ -478,6 +483,54 @@ static UIView *HGFixtureDramaContainer;
                 }
             }
             [avatar removeFromSuperview];
+            HGWritePreference(@"profiles.enabled", @YES);
+            HGCheck(HGUnitClose(HGNumber(@"detail.right.scale"), HGNumber(@"right.scale")), @"First independent profile did not copy current settings");
+            HGWritePreference(@"detail.right.scale", @0.6); HGWritePreference(@"detail.right.gap", @2);
+            [detailRight layoutSubviews]; [self.fixture.right layoutSubviews];
+            HGCheck(HGUnitClose(detailRight.items.firstObject.transform.a, 0.6) && HGUnitClose(self.fixture.right.items.firstObject.transform.a, 0.8), @"Detail right scale leaked into home");
+            UIView *detailCaption = [[SSShortVideoSingleSeriesInfoLeftContainerView alloc] initWithFrame:CGRectMake(16, 645, 282, 80)];
+            [detail.view addSubview:detailCaption];
+            UILabel *detailTitle = [[UILabel alloc] initWithFrame:CGRectMake(0, 30, 240, 22)]; [detailCaption addSubview:detailTitle];
+            HGWritePreference(@"detail.caption.titleScale", @0.7); detailTitle.font = [UIFont systemFontOfSize:18];
+            [detailCaption layoutSubviews];
+            HGCheck(closeTo(detailTitle.font.pointSize, 12.6) && closeTo(HGFixtureDramaTitle.font.pointSize, 18), @"Detail caption scale did not stay independent");
+            UIView *cleanHeader = [[SSVideoSeriesFeedHeaderView alloc] initWithFrame:CGRectMake(0, 62, 300, 44)]; [self.fixture.feed.view addSubview:cleanHeader];
+            UITableViewController *viewingSettings = [self makeSettings];
+            UISwitch *cleanSwitch = (id)[viewingSettings tableView:viewingSettings.tableView cellForRowAtIndexPath:[NSIndexPath indexPathForRow:1 inSection:6]].accessoryView;
+            cleanSwitch.on = YES; [cleanSwitch sendActionsForControlEvents:UIControlEventValueChanged];
+            HGApplyViewing(self.fixture.right); HGApplyViewing(HGFixtureDramaContainer); HGApplyViewing(cleanHeader); HGApplyViewing(detailRight); HGApplyViewing(HGFixtureBottom);
+            HGCheck(self.fixture.right.hidden && HGFixtureDramaContainer.hidden && cleanHeader.hidden, @"Pure mode did not hide configured home overlays");
+            HGCheck(!detailRight.hidden && !HGFixtureBottom.hidden, @"Home pure mode hid independent detail or default retained episode entry");
+            HGCheck([self.fixture.right hitTest:CGPointMake(23, 100) withEvent:nil] == nil, @"Hidden pure-mode right controls still intercept video touches");
+            for (NSUInteger n = 0; n < 5; n++) { cleanHeader.hidden = NO; HGApplyViewing(cleanHeader); }
+            HGCheck(cleanHeader.hidden, @"Host show defeated pure mode");
+            HGWritePreference(@"detail.clean.enabled", @YES); HGApplyViewing(detailRight); HGApplyViewing(detailCaption);
+            HGCheck(detailRight.hidden && detailCaption.hidden, @"Independent detail pure mode did not apply");
+            detailCaption.hidden = YES;
+            HGWritePreference(@"detail.clean.enabled", @NO); HGApplyViewing(detailCaption); HGApplyViewing(detailRight);
+            HGCheck(detailCaption.hidden && !detailRight.hidden, @"Pure mode failed to retain host hidden intent on restore");
+            detailCaption.hidden = NO;
+            cleanSwitch.on = NO; [cleanSwitch sendActionsForControlEvents:UIControlEventValueChanged];
+            HGApplyViewing(self.fixture.right); HGApplyViewing(HGFixtureDramaContainer); HGApplyViewing(cleanHeader);
+            HGCheck(!self.fixture.right.hidden && !HGFixtureDramaContainer.hidden && !cleanHeader.hidden, @"Turning off pure mode did not restore overlays");
+            UIView *topShade = [[FQVShortVideoGradientLayerView alloc] initWithFrame:CGRectMake(0, 0, 402, 159)];
+            UIView *bottomShade = [[FQVShortVideoGradientLayerView alloc] initWithFrame:CGRectMake(0, 504, 402, 280)];
+            UIView *detailShade = [[FQVShortVideoGradientLayerView alloc] initWithFrame:CGRectMake(0, 0, 402, 159)];
+            [self.fixture.list.view addSubview:topShade]; [self.fixture.list.view addSubview:bottomShade]; [detail.view addSubview:detailShade];
+            topShade.alpha = 0.8; bottomShade.alpha = 0.6; detailShade.alpha = 0.8;
+            HGWritePreference(@"shade.top", @0.5); HGWritePreference(@"shade.bottom", @0.25); HGWritePreference(@"shade.enabled", @YES);
+            for (NSUInteger n = 0; n < 5; n++) { topShade.alpha = 0.8; bottomShade.alpha = 0.6; [topShade layoutSubviews]; [bottomShade layoutSubviews]; }
+            HGCheck(HGUnitClose(topShade.alpha, 0.4) && HGUnitClose(bottomShade.alpha, 0.15), @"Shade scaling accumulated or confused top and bottom");
+            HGApplyViewing(detailShade); HGCheck(HGUnitClose(detailShade.alpha, 0.8), @"Home shade setting leaked into independent detail");
+            HGWritePreference(@"detail.shade.enabled", @YES); HGWritePreference(@"detail.shade.top", @0.25); HGApplyViewing(detailShade);
+            HGCheck(HGUnitClose(detailShade.alpha, 0.2), @"Detail shade override did not apply");
+            HGWritePreference(@"profiles.enabled", @NO); HGApplyViewing(detailShade);
+            HGCheck(HGUnitClose(detailShade.alpha, 0.4), @"Disabling independent profiles did not restore common shade settings");
+            HGWritePreference(@"enabled", @NO); HGApplyViewing(topShade); HGApplyViewing(bottomShade); HGApplyViewing(detailShade);
+            HGCheck(HGUnitClose(topShade.alpha, 0.8) && HGUnitClose(bottomShade.alpha, 0.6) && HGUnitClose(detailShade.alpha, 0.8), @"Master disable failed to restore native shade alpha");
+            HGCheck(rectClose(bottomShade.frame, CGRectMake(0, 504, 402, 280)), @"Viewing features changed native shade geometry");
+            HGWritePreference(@"shade.enabled", @NO); HGWritePreference(@"enabled", @YES);
+            [cleanHeader removeFromSuperview]; [detailCaption removeFromSuperview]; [topShade removeFromSuperview]; [bottomShade removeFromSuperview]; [detailShade removeFromSuperview];
             [detail.view removeFromSuperview]; [detail removeFromParentViewController];
             HGCheck(!HGFixtureBottomImage.hidden && !HGFixtureBottomBlur.hidden, @"Native distribution background was modified");
             HGCheck([HGFixtureBottom.backgroundColor isEqual:UIColor.grayColor] && [HGFixtureBottomParent.backgroundColor isEqual:UIColor.grayColor], @"Native distribution color changed");
