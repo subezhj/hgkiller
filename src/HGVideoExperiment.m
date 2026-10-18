@@ -83,7 +83,7 @@ void HGUpdateVideoExperiment(UIView *bar) {
         UICollectionView *collection = (id)HGAncestorNamed(picture, @"FQVCollectionView");
         UIView *cell = HGAncestorNamed(picture, @"FQVShortVideoCell");
         if (!picture || !HGIsClass(owner, @"FQVShortVideoListViewController") || !collection || !cell || owner.presentedViewController || HGVideoBlocked(cell)) {
-            HGRestoreVideoExperiment(); HGVideoStatus = @"黑底：当前页面无可扩展的播放单元。"; return;
+            HGRestoreVideoExperiment(); HGVideoStatus = [NSString stringWithFormat:@"黑底：当前页面无可扩展的播放单元。\n画面=%@，归属=%@，列表=%@，单元=%@，面板=%@", picture ? NSStringFromClass(picture.class) : @"未找到", owner ? NSStringFromClass(owner.class) : @"未找到", collection ? NSStringFromClass(collection.class) : @"未找到", cell ? NSStringFromClass(cell.class) : @"未找到", owner.presentedViewController ? NSStringFromClass(owner.presentedViewController.class) : @"无"]; return;
         }
         CGRect page = [cell convertRect:cell.bounds toView:bar.window];
         CGRect display = [picture convertRect:picture.bounds toView:bar.window];
