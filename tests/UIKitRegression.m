@@ -588,6 +588,7 @@ static UIView *HGFixtureDramaContainer;
             SSSettingViewController *nativeSettings = [[SSSettingViewController alloc] initWithStyle:UITableViewStyleInsetGrouped];
             [nativeSettings viewDidLayoutSubviews]; UIView *originalEntry = nativeSettings.tableView.tableHeaderView;
             HGCheck(originalEntry && [NSStringFromClass(originalEntry.class) isEqualToString:@"HGSettingsHeader"], @"Native settings entry missing");
+            nativeSettings.tableView.tableHeaderView = nil; // Detach before reparenting; UITableView removes its previous header on replacement.
             UIView *hostWrapper = [[UIView alloc] initWithFrame:originalEntry.frame]; [hostWrapper addSubview:originalEntry];
             nativeSettings.tableView.tableHeaderView = hostWrapper;
             [nativeSettings viewDidLayoutSubviews]; [nativeSettings viewDidLayoutSubviews];
