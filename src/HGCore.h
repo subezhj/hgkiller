@@ -50,3 +50,5 @@ FOUNDATION_EXPORT void HGRestoreVideoExperimentForBar(UIView *bar);
 FOUNDATION_EXPORT BOOL HGVideoCoversBar(UIView *bar);
 FOUNDATION_EXPORT void HGInstallVideoExperiment(void);
 FOUNDATION_EXPORT NSString *HGVideoExperimentStatus(void);
+FOUNDATION_EXPORT void HGDistributionAppearance(UIView *view);
+FOUNDATION_EXPORT UITabBar *HGCreateNativeTabBar(UIView *host);

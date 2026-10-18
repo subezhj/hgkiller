@@ -1,5 +1,37 @@
 #import "HGCore.h"
 static char HGCaptionKey;
+static char HGCaptionGeometryKey;
+@interface HGCaptionGeometry : NSObject
+@property(nonatomic) CGRect host;
+@property(nonatomic) CGRect applied;
+@property(nonatomic) BOOL active;
+@end
+@implementation HGCaptionGeometry @end
+static void HGCaptionRepair(UIView *container) {
+    BOOL on = HGEnabled() && HGBool(@"tab.liquid.enabled");
+    CGFloat descriptionY = CGFLOAT_MAX;
+    for (UIView *row in container.subviews)
+        if (!row.hidden && ([row isKindOfClass:UIScrollView.class] || HGIsClass(row, @"YYLabel")) && row.bounds.size.height > 1)
+            descriptionY = MIN(descriptionY, row.frame.origin.y);
+    for (UIView *row in container.subviews) {
+        HGCaptionGeometry *state = objc_getAssociatedObject(row, &HGCaptionGeometryKey);
+        if (!on) {
+            if (state.active && CGRectEqualToRect(row.frame, state.applied)) row.frame = state.host;
+            objc_setAssociatedObject(row, &HGCaptionGeometryKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC); continue;
+        }
+        if (row.hidden || row.class != UIView.class || row.bounds.size.width < container.bounds.size.width * 0.8 || row.bounds.size.height < 16 || row.bounds.size.height > 32) continue;
+        BOOL label = NO, icon = NO;
+        for (UIView *child in row.subviews) { if ([child isKindOfClass:UILabel.class] && child.bounds.size.width > 1) label = YES; if ([child isKindOfClass:UIImageView.class]) icon = YES; }
+        if (!label || !icon || descriptionY == CGFLOAT_MAX) continue;
+        if (!state) { state = [HGCaptionGeometry new]; objc_setAssociatedObject(row, &HGCaptionGeometryKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
+        if (!state.active || !CGRectEqualToRect(row.frame, state.applied)) state.host = row.frame;
+        CGRect target = state.host;
+        CGFloat maximum = MAX(0, MIN(descriptionY - target.size.height - 8, container.bounds.size.height - target.size.height));
+        target.origin.y = MIN(target.origin.y, maximum);
+        state.applied = target; state.active = !CGRectEqualToRect(target, state.host);
+        if (!CGRectEqualToRect(row.frame, target)) HGApply(^{ row.frame = target; });
+    }
+}
 @interface HGCaptionState : NSObject
 @property(nonatomic, strong) UIFont *host;
 @property(nonatomic, strong) UIFont *applied;
@@ -38,7 +70,7 @@ static void HGCaptionFonts(UIView *view) {
 }
 void HGInstallCaption(void) {
     for (NSString *name in @[@"SSShortVideoOutterSeriesLeftContainerView", @"SSShortVideoSingleSeriesInfoLeftContainerView"])
-        HGHookLayout(name, ^(UIView *view) { HGCaptionFonts(view); HGApplyViewing(view); });
+        HGHookLayout(name, ^(UIView *view) { HGCaptionRepair(view); HGCaptionFonts(view); HGApplyViewing(view); });
     SEL setter = @selector(setFont:);
     HGInstall(NSClassFromString(@"YYLabel"), setter, ^id(IMP original) {
         return ^(UIView *view, UIFont *font) {

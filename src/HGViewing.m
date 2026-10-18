@@ -51,6 +51,7 @@ static CGFloat HGShadeAlpha(UIView *view, HGViewingState *state) {
     return active ? state.hostAlpha * HGNumber(HGViewingKey(view, top ? @"shade.top" : @"shade.bottom")) : state.hostAlpha;
 }
 void HGApplyViewing(UIView *view) {
+    HGDistributionAppearance(view);
     NSString *group = HGViewingGroup(view);
     if (group) {
         HGViewingState *state = HGViewingStateFor(view);
