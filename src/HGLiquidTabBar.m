@@ -32,7 +32,7 @@ static BOOL HGCanForwardTab(UIView *host, UIView *button) {
     NSArray *buttons = HGTabButtons(self.host); NSUInteger index = [tabBar.items indexOfObjectIdenticalTo:item];
     if (index >= buttons.count) return;
     UIView *button = buttons[index];
-    if ([button isKindOfClass:UIControl.class] && (((UIControl *)button).allControlEvents & UIControlEventTouchUpInside))
+    if ([button isKindOfClass:UIControl.class])
         [(UIControl *)button sendActionsForControlEvents:UIControlEventTouchUpInside];
     else {
         UITabBar *source = HGSourceTabBar(self.host);
@@ -48,12 +48,10 @@ UITabBar *HGCreateNativeTabBar(UIView *host) {
     NSArray *buttons = HGTabButtons(host); if (buttons.count != 3) return nil;
     UITabBar *native = [[UITabBar alloc] initWithFrame:host.bounds]; native.tag = 0x484751;
     native.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
-    UITabBarAppearance *appearance = [UITabBarAppearance new]; [appearance configureWithTransparentBackground];
-    appearance.backgroundColor = UIColor.clearColor; appearance.backgroundEffect = nil; appearance.shadowColor = UIColor.clearColor;
-    native.standardAppearance = appearance;
-    if (@available(iOS 15.0, *)) native.scrollEdgeAppearance = appearance;
-    native.backgroundColor = UIColor.clearColor; native.translucent = YES;
-    native.tintColor = UIColor.labelColor; native.unselectedItemTintColor = UIColor.secondaryLabelColor;
+    // Leave appearance ownership to UIKit. On iOS 26 this is what enables the
+    // standard liquid-glass tab bar platter; forcing a transparent appearance
+    // produces only a dark/clear rectangle.
+    native.translucent = YES;
     NSArray *titles = @[@"首页", @"剧场", @"我的"], *symbols = @[@"house.fill", @"play.rectangle.fill", @"person.fill"];
     NSMutableArray *items = [NSMutableArray array];
     for (NSUInteger i = 0; i < 3; i++) {
@@ -62,8 +60,9 @@ UITabBar *HGCreateNativeTabBar(UIView *host) {
     }
     native.items = items; native.selectedItem = items.firstObject;
     HGNativeTabProxy *proxy = [HGNativeTabProxy new]; proxy.host = host; native.delegate = proxy;
-    BOOL forwards = YES;
-    for (UIView *button in buttons) if (!HGCanForwardTab(host, button)) forwards = NO;
+    BOOL forwards = NO;
+    for (UIView *button in buttons)
+        if ([button isKindOfClass:UIControl.class] || HGCanForwardTab(host, button)) forwards = YES;
     native.userInteractionEnabled = forwards;
     objc_setAssociatedObject(native, &HGNativeProxyKey, proxy, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     return native;
