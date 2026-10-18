@@ -34,13 +34,7 @@ static BOOL HGCanForwardTab(UIView *host, UIView *button) {
     UIView *button = buttons[index];
     if ([button isKindOfClass:UIControl.class]) {
         UIControl *control = (UIControl *)button;
-        NSArray<NSString *> *actions = [control actionsForTarget:nil forControlEvent:UIControlEventTouchUpInside];
         [control sendActionsForControlEvents:UIControlEventTouchUpInside];
-        // Some app builds attach the target to a wrapper control and leave the
-        // visible button's action list empty. Re-dispatch discovered selectors
-        // through UIApplication so those wrappers receive the same event.
-        for (NSString *actionName in actions)
-            [UIApplication.sharedApplication sendAction:NSSelectorFromString(actionName) to:control forEvent:nil];
     }
     else {
         UITabBar *source = HGSourceTabBar(self.host);
