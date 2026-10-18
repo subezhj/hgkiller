@@ -39,7 +39,8 @@ void HGRestoreVideoExperiment(void) {
     // Respect a host that has replaced its own transform/mask meanwhile.
     if (state.picture && CATransform3DEqualToTransform(state.picture.layer.sublayerTransform, state.applied)) state.picture.layer.sublayerTransform = state.source;
     if (state.cell.layer.mask == state.mask) state.cell.layer.mask = state.oldMask;
-    for (HGClipSnapshot *clip in state.clips) if (clip.view.clipsToBounds != clip.clips) clip.view.clipsToBounds = clip.clips;
+    for (HGClipSnapshot *clip in state.clips)
+        if (!clip.view.clipsToBounds && clip.clips) clip.view.clipsToBounds = YES;
     for (UIView *sibling in state.siblings) {
         NSNumber *opacity = [state.siblings objectForKey:sibling];
         if (sibling.layer.opacity == 0) sibling.layer.opacity = opacity.floatValue;
