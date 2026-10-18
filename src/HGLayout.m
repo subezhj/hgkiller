@@ -11,8 +11,9 @@ void HGInstallFeatures(void) {
     HGInstallCaption();
     HGInstallViewing();
     HGInstallTabAllocation();
+    HGInstallVideoExperiment();
     HGInstallTabAppearance();
-    // Isolation: native viewport, paging and renderer geometry remain untouched.
+    // Native viewport/paging remain untouched; render-only experiment is opt-in.
 }
 
 

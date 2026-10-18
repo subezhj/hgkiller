@@ -105,10 +105,13 @@ static NSArray<NSArray<NSDictionary *> *> *HGAllRows(void) {
             @{@"key": @"right.gap", @"title": @"右侧控件间距", @"slider": @YES, @"unit": @"pt", @"min": @0, @"max": @24}
         ],
         @[
+            @{@"key": @"tab.liquid.enabled", @"title": @"液态玻璃底栏（实验）"},
+            @{@"key": @"tab.liquid.video", @"title": @"竖屏视频铺满屏幕（实验）", @"disabled": @(!HGBool(@"tab.liquid.enabled"))},
+            @{@"title": @"玻璃与视频扩展状态", @"action": @"liquidLog"},
             @{@"key": @"tab.textScale", @"title": @"底栏文字大小", @"slider": @YES, @"min": @0.55, @"max": @1.2},
-            @{@"key": @"tab.appearance.enabled", @"title": @"深色模糊背景"},
-            @{@"key": @"tab.layout.enabled", @"title": @"实际高度调整（仅底栏诊断）"},
-            @{@"key": @"tab.appearance.height", @"title": @"底栏高度", @"slider": @YES, @"unit": @"pt", @"min": @62, @"max": @84},
+            @{@"key": @"tab.appearance.enabled", @"title": @"深色模糊背景", @"disabled": @(HGBool(@"tab.liquid.enabled"))},
+            @{@"key": @"tab.layout.enabled", @"title": @"实际高度调整（仅底栏诊断）", @"disabled": @(HGBool(@"tab.liquid.enabled"))},
+            @{@"key": @"tab.appearance.height", @"title": @"底栏高度", @"slider": @YES, @"unit": @"pt", @"min": @62, @"max": @84, @"disabled": @(HGBool(@"tab.liquid.enabled"))},
 
         ],
         @[
@@ -166,14 +169,14 @@ static NSArray<NSArray<NSDictionary *> *> *HGAllRows(void) {
         @{@"title": @"合集观影设置", @"action": @"page.detail", @"disabled": @(!HGBool(@"profiles.enabled"))},
         @{@"key": @"landscape.enabled", @"title": @"补充原生横屏入口"}
     ], @[
-        @{@"title": @"底栏设置（诊断）", @"action": @"page.tab"},
+        @{@"title": @"底栏设置", @"action": @"page.tab"},
         @{@"title": @"诊断与重置", @"action": @"page.other"}
     ]];
 }
 - (NSString *)pageTitle {
     if ([self.settingsPage isEqualToString:@"home"]) return HGBool(@"profiles.enabled") ? @"首页观影设置" : @"通用观影设置";
     if ([self.settingsPage isEqualToString:@"detail"]) return @"合集观影设置";
-    if ([self.settingsPage isEqualToString:@"tab"]) return @"底栏设置（诊断）";
+    if ([self.settingsPage isEqualToString:@"tab"]) return @"底栏设置";
     if ([self.settingsPage isEqualToString:@"other"]) return @"诊断与重置";
     return @"hgkiller";
 }
@@ -199,7 +202,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGAllRows(void) {
     if (!self.settingsPage.length) {
         if (section == 0) return @"关闭总开关后恢复插件调整的显示状态。";
         if (section == 1) return @"关闭独立配置时只需设置通用参数；开启后可分别设置首页与合集。补充横屏入口会调用当前视频的原生按钮事件，能否进入横屏仍由红果播放器决定。";
-        return @"hgkiller 0.1.23 · 原设置保留";
+        return @"hgkiller 0.1.24 · 原设置保留";
     }
     if ([self.settingsPage isEqualToString:@"detail"]) return HGBool(@"profiles.enabled") ? @"仅影响合集播放页，保留首页设置。" : @"请先返回首页开启独立配置。";
     if ([self.settingsPage isEqualToString:@"home"]) section = [@[@1, @3, @4, @6][section] unsignedIntegerValue];
@@ -208,12 +211,12 @@ static NSArray<NSArray<NSDictionary *> *> *HGAllRows(void) {
     switch (section) {
         case 0: return @"关闭后恢复 hgkiller 调整的布局。本版本暂时停用布局保护。";
         case 1: return @"关闭某项后自动收紧排列；大小 55%–100%，间距 0–24 pt。首次显示与后续布局统一应用。";
-        case 2: return @"诊断版只调整底栏，不扩展视频，不改分页或播放器；原播放占位仍保留，可能有空隙。每次启动默认关闭，方便卡住后重启查看诊断。记录不会自动停用功能。";
+        case 2: return @"实验玻璃保留原生底栏占位，无可用视频时黑底。视频铺满独立开启，仅扩展已验证的高竖屏渲染子层，可能裁切左右；未匹配则黑底。实验模式暂停旧模糊和高度调整，保留旧设置。诊断只记录，不启用布局保护。";
         case 3: return @"调整首页顶部分类与搜索文字，保留原来的入口。";
         case 4: return @"剧名与集数、简介、展开分别调整为原字号的 55%–100%。默认原字号，不修改文案容器位置。";
         case 6: return @"纯净模式默认保留观看全集入口，关闭后恢复宿主显示状态。遮罩强度 0%–100%，仅降低原渐变透明度。关闭独立配置时，通用设置同时作用于首页和合集。";
         case 7: return @"开启独立配置后生效；首次开启会复制当前通用设置，再允许单独调整合集的控件、文案、纯净模式与遮罩。顶部分类仅在首页设置。";
-        default: return @"hgkiller 0.1.23 · 红果短剧 7.3.9 适配";
+        default: return @"hgkiller 0.1.24 · 红果短剧 7.3.9 适配";
     }
 }
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)path {
@@ -287,15 +290,16 @@ static NSArray<NSArray<NSDictionary *> *> *HGAllRows(void) {
         }
         return;
     }
-    if ([action isEqualToString:@"heightLog"] || [action isEqualToString:@"landscapeLog"]) {
+    if ([action isEqualToString:@"heightLog"] || [action isEqualToString:@"landscapeLog"] || [action isEqualToString:@"liquidLog"]) {
         BOOL landscape = [action isEqualToString:@"landscapeLog"];
-        UIViewController *detail = [UIViewController new]; detail.title = landscape ? @"横屏入口诊断" : @"高度诊断记录";
+        BOOL liquid = [action isEqualToString:@"liquidLog"];
+        UIViewController *detail = [UIViewController new]; detail.title = liquid ? @"玻璃与视频扩展状态" : (landscape ? @"横屏入口诊断" : @"高度诊断记录");
         UITextView *text = [[UITextView alloc] initWithFrame:detail.view.bounds];
         text.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         text.editable = NO; text.selectable = YES; text.alwaysBounceVertical = YES;
         text.backgroundColor = UIColor.systemBackgroundColor;
         text.font = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightRegular];
-        text.textContainerInset = UIEdgeInsetsMake(16, 16, 16, 16); text.text = landscape ? HGLandscapeDiagnosticText() : HGHeightDiagnosticText();
+        text.textContainerInset = UIEdgeInsetsMake(16, 16, 16, 16); text.text = liquid ? HGLiquidDiagnosticText() : (landscape ? HGLandscapeDiagnosticText() : HGHeightDiagnosticText());
         [detail.view addSubview:text];
         if (self.navigationController) [self.navigationController pushViewController:detail animated:YES];
         else {
@@ -325,7 +329,7 @@ static NSArray<NSArray<NSDictionary *> *> *HGAllRows(void) {
         message = [message stringByAppendingFormat:@"\n\n当前状态：%@\n布局保护：暂时停用", HGSettingsState()];
         message = [message stringByAppendingFormat:@"\n实际高度调整：%@\n设置高度：%.0f pt", HGBool(@"tab.layout.enabled") ? @"开启" : @"关闭", HGNumber(@"tab.appearance.height")];
         if (HGSafetyReason().length) message = [message stringByAppendingFormat:@"\n\n上次保护记录（历史）：%@", HGSafetyReason()];
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.23"
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"hgkiller 0.1.24"
                                                                       message:message preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"好" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:alert animated:YES completion:nil];

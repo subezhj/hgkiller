@@ -15,7 +15,7 @@ static UIView *HGAppearanceBar(UIView *view) {
     for (UIView *node = view; node; node = node.superview) if (HGIsClass(node, @"SSTabBar")) return node;
     return nil;
 }
-static BOOL HGAppearanceActive(UIView *bar) { return bar && bar.window && HGEnabled() && HGBool(@"tab.appearance.enabled"); }
+static BOOL HGAppearanceActive(UIView *bar) { return bar && bar.window && HGEnabled() && !HGBool(@"tab.liquid.enabled") && HGBool(@"tab.appearance.enabled"); }
 static BOOL HGCaptionChild(UIView *view) {
     if (HGIsClass(view, @"CYLLabel")) return NO;
     if ([view isKindOfClass:UILabel.class]) return YES;
@@ -25,7 +25,7 @@ static BOOL HGCaptionChild(UIView *view) {
 void HGTabAppearanceCaption(UIView *button) {
     UIView *bar = HGAppearanceBar(button);
     HGAppearanceCaption *state = objc_getAssociatedObject(button, &HGAppearanceCaptionKey);
-    BOOL active = HGAppearanceActive(bar) || (bar && HGEnabled() && HGBool(@"tab.layout.enabled"));
+    BOOL active = HGAppearanceActive(bar) || (bar && HGEnabled() && !HGBool(@"tab.liquid.enabled") && HGBool(@"tab.layout.enabled"));
     if (!state && !active) return;
     if (!state) { state = [HGAppearanceCaption new]; state.host = button.layer.sublayerTransform; objc_setAssociatedObject(button, &HGAppearanceCaptionKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
     CATransform3D target = state.host;
@@ -41,11 +41,13 @@ void HGTabAppearanceCaption(UIView *button) {
     HGApply(^{ if (!CATransform3DEqualToTransform(button.layer.sublayerTransform, target)) button.layer.sublayerTransform = target; });
 }
 static void HGAppearanceLayout(UIView *bar) {
+    BOOL liquid = HGEnabled() && HGBool(@"tab.liquid.enabled");
+    if (!liquid) HGLiquidTabLayout(bar);
     HGReflowTabAllocation(bar);
     HGAppearance *state = objc_getAssociatedObject(bar, &HGAppearanceKey);
     BOOL active = HGAppearanceActive(bar);
-    BOOL allocation = HGEnabled() && HGBool(@"tab.layout.enabled");
-    if (!state && !active && !allocation) return;
+    BOOL allocation = HGEnabled() && !liquid && HGBool(@"tab.layout.enabled");
+    if (!state && !active && !allocation) { if (liquid) HGLiquidTabLayout(bar); return; }
     if (!state) { state = [HGAppearance new]; state.hostBackground = bar.backgroundColor; state.hostClips = bar.clipsToBounds; objc_setAssociatedObject(bar, &HGAppearanceKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
     if (bar.clipsToBounds != (allocation ? YES : state.hostClips)) bar.clipsToBounds = allocation ? YES : state.hostClips;
     if (active && !state.blur) {
@@ -92,12 +94,17 @@ static void HGAppearanceLayout(UIView *bar) {
         if (HGIsClass(child, @"SSTabBarTextButton")) HGTabAppearanceCaption(child);
         else for (UIView *button in child.subviews) if (HGIsClass(button, @"SSTabBarTextButton")) HGTabAppearanceCaption(button);
     }
+    if (liquid) HGLiquidTabLayout(bar);
 }
 void HGInstallTabAppearance(void) {
     HGHookLayout(@"SSTabBar", ^(UIView *bar) { HGAppearanceLayout(bar); });
     SEL moved = @selector(didMoveToWindow);
     HGInstall(NSClassFromString(@"SSTabBar"), moved, ^id(IMP original) {
-        return ^(UIView *bar) { ((void (*)(id, SEL))original)(bar, moved); if (bar.window) { HGAppearanceLayout(bar); HGRefreshViews(); } };
+        return ^(UIView *bar) { ((void (*)(id, SEL))original)(bar, moved); if (bar.window) { HGAppearanceLayout(bar); HGRefreshViews(); } else HGLiquidTabLayout(bar); };
+    });
+    SEL hidden = @selector(setHidden:);
+    HGInstall(NSClassFromString(@"SSTabBar"), hidden, ^id(IMP original) {
+        return ^(UIView *bar, BOOL value) { ((void (*)(id, SEL, BOOL))original)(bar, hidden, value); if (value) HGLiquidTabLayout(bar); else [bar setNeedsLayout]; };
     });
 }
 

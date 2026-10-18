@@ -173,7 +173,7 @@ void HGInstallChrome(void) {
         };
     });
     HGHookControllerLayout(@"FQVShortVideoListViewController", ^(UIViewController *controller) { HGFindRightContainers(controller.view); HGRefreshLandscape(controller); });
-    for (NSString *name in @[@"FQVShortVideoVPlayerSingleSeriesControlView", @"FQVShortVideoVPlayerOutterMultiSeriesControlView", @"FQVShortVideoDerivativeVideoControlView"])
+    for (NSString *name in @[@"TTPlayerView", @"FQVShortVideoVPlayerSingleSeriesControlView", @"FQVShortVideoVPlayerOutterMultiSeriesControlView", @"FQVShortVideoDerivativeVideoControlView"])
         HGHookLayout(name, ^(UIView *view) {
             if (HGEnabled() && HGBool(@"landscape.enabled") && view.window && !view.hidden) HGRefreshLandscape(HGOwner(view));
         });

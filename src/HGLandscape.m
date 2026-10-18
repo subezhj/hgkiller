@@ -109,7 +109,7 @@ static CGRect HGLandscapeButtonFrame(UIView *root) {
     return CGRectMake(x, y, width, height);
 }
 static void HGLandscapeRecord(NSString *text) {
-    [NSUserDefaults.standardUserDefaults setObject:[NSString stringWithFormat:@"hgkiller 0.1.23\n%@\n%@", NSDate.date, text] forKey:[HGPreferencePrefix stringByAppendingString:@"landscape.lastDiagnostic"]];
+    [NSUserDefaults.standardUserDefaults setObject:[NSString stringWithFormat:@"hgkiller 0.1.24\n%@\n%@", NSDate.date, text] forKey:[HGPreferencePrefix stringByAppendingString:@"landscape.lastDiagnostic"]];
 }
 NSString *HGLandscapeDiagnosticText(void) {
     return [NSUserDefaults.standardUserDefaults stringForKey:[HGPreferencePrefix stringByAppendingString:@"landscape.lastDiagnostic"]] ?: @"尚未点击补充横屏入口。";
@@ -117,7 +117,9 @@ NSString *HGLandscapeDiagnosticText(void) {
 @implementation HGLandscapeEntry
 - (void)activate:(id)sender {
     UIViewController *owner = self.owner;
-    if (!HGEnabled() || !HGBool(@"landscape.enabled") || !owner.view.window) return;
+    UIView *picture = HGCurrentPicture(owner.view);
+    if (!HGEnabled() || !HGBool(@"landscape.enabled") || !owner.view.window || !picture || picture.bounds.size.width <= picture.bounds.size.height) return;
+    HGRestoreVideoExperiment();
     NSMutableArray *log = [NSMutableArray array]; UIControlEvents event = 0;
     UIControl *native = HGFindLandscape(owner.view, owner.view, &event, log);
     if (!native) {
@@ -142,7 +144,8 @@ void HGRefreshLandscape(UIViewController *controller) {
     if (!HGIsClass(controller, @"FQVShortVideoListViewController") || !controller.isViewLoaded) return;
     UIView *view = controller.view; UIWindow *window = view.window;
     HGLandscapeEntry *state = objc_getAssociatedObject(controller, &HGLandscapeKey);
-    BOOL enabled = HGEnabled() && HGBool(@"landscape.enabled") && window && window.windowLevel == UIWindowLevelNormal && window.bounds.size.height > window.bounds.size.width && HGLandscapeVisible(view);
+    UIView *picture = HGCurrentPicture(view);
+    BOOL enabled = HGEnabled() && HGBool(@"landscape.enabled") && picture && picture.bounds.size.width > picture.bounds.size.height && window && window.windowLevel == UIWindowLevelNormal && window.bounds.size.height > window.bounds.size.width && HGLandscapeVisible(view);
     if (!enabled) { [state.button removeFromSuperview]; return; }
     if (!state) {
         state = [HGLandscapeEntry new]; state.owner = controller;

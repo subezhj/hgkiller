@@ -20,7 +20,7 @@ static HGTabHeightState *HGTabHeight(UIView *bar) {
     return state;
 }
 static BOOL HGTabHeightEnabled(UIView *bar) {
-    if (!HGEnabled() || !HGBool(@"tab.layout.enabled") || !bar.window ||
+    if (!HGEnabled() || HGBool(@"tab.liquid.enabled") || !HGBool(@"tab.layout.enabled") || !bar.window ||
         bar.window.windowLevel != UIWindowLevelNormal || bar.window.bounds.size.height <= bar.window.bounds.size.width) return NO;
     for (UIView *view = bar; view; view = view.superview) if (view.hidden || view.alpha < 0.01) return NO;
     return YES;

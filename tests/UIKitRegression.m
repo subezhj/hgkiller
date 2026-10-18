@@ -82,6 +82,8 @@ static void HGWriteProgress(NSInteger phase) {
 @implementation FQVPlayer @end
 @interface TTPlayerView : UIView @end
 @implementation TTPlayerView @end
+@interface TTMetalView : UIView @end
+@implementation TTMetalView @end
 static NSUInteger HGLandscapeCalls, HGLandscapeWrongCalls, HGLandscapeExitCalls;
 @interface SSFixtureLandscapeTarget : NSObject
 @property(nonatomic) BOOL offscreen;
@@ -566,6 +568,8 @@ static UIView *HGFixtureDramaContainer;
             [detail.view addSubview:exitNative];
             UIButton *native = [UIButton buttonWithType:UIButtonTypeSystem]; native.frame = CGRectMake(0, 150, 72, 32); native.hidden = YES;
             [native addTarget:nativeTarget action:@selector(enterFullScreen:) forControlEvents:UIControlEventTouchUpInside]; [detail.view addSubview:native];
+            TTPlayerView *picture = [[TTPlayerView alloc] initWithFrame:CGRectMake(0, 278.9, detail.view.bounds.size.width, 226.1)];
+            [detail.view addSubview:picture];
             HGCheck(!HGBool(@"landscape.enabled"), @"Native landscape entry enabled by default");
             HGWritePreference(@"landscape.enabled", @YES); HGRefreshLandscape(detail);
             UIButton *proxy = (id)[detail.view viewWithTag:0x48474C];
@@ -573,8 +577,7 @@ static UIView *HGFixtureDramaContainer;
             HGWritePreference(@"clean.caption", @NO);
             UIView *placementCaption = [[SSShortVideoSingleSeriesInfoLeftContainerView alloc] initWithFrame:CGRectMake(16, 645, 282, 80)];
             [detail.view addSubview:placementCaption]; placementCaption.hidden = NO;
-            TTPlayerView *picture = [[TTPlayerView alloc] initWithFrame:CGRectMake(0, 278.9, detail.view.bounds.size.width, 226.1)];
-            [detail.view addSubview:picture]; HGRefreshLandscape(detail);
+            HGRefreshLandscape(detail);
             HGCheck(closeTo(CGRectGetMidX(proxy.frame), CGRectGetMidX(detail.view.bounds)), @"Full-watch entry was not horizontally centered");
             CGPoint fixedAnchor = [detail.view convertPoint:CGPointMake(CGRectGetMidX(detail.view.window.bounds), detail.view.window.bounds.size.height * 0.6) fromView:detail.view.window];
             HGCheck(closeTo(CGRectGetMinY(proxy.frame), fixedAnchor.y), @"Full-watch entry did not use its fixed screen anchor");
@@ -582,6 +585,7 @@ static UIView *HGFixtureDramaContainer;
             CGRect stableFrame = proxy.frame;
             picture.frame = detail.view.bounds; HGRefreshLandscape(detail);
             HGCheck(rectClose(proxy.frame, stableFrame), @"Video aspect ratio moved the full-watch entry");
+            HGCheck(!proxy.superview, @"Portrait video still displayed supplementary landscape entry");
             HGCheck(!CGRectIntersectsRect(proxy.frame, placementCaption.frame), @"Portrait full-watch entry overlapped caption");
             UIScrollView *paging = [[UIScrollView alloc] initWithFrame:detail.view.bounds];
             paging.contentSize = CGSizeMake(paging.bounds.size.width, paging.bounds.size.height * 3);
@@ -596,6 +600,7 @@ static UIView *HGFixtureDramaContainer;
             for (NSInteger pass = 0; pass < 5; pass++) HGRefreshLandscape(detail);
             HGCheck(rectClose(proxy.frame, stableFrame) && rectClose(picture.frame, detail.view.bounds), @"Entry placement drifted or changed player geometry");
             [picture removeFromSuperview]; [placementCaption removeFromSuperview]; [paging removeFromSuperview];
+            picture.frame = CGRectMake(0, 278.9, detail.view.bounds.size.width, 226.1); [detail.view addSubview:picture]; HGRefreshLandscape(detail);
             native.frame = CGRectMake(0, 150, 72, 32);
             [proxy sendActionsForControlEvents:UIControlEventTouchUpInside];
             HGCheck(HGLandscapeCalls == 1 && HGLandscapeWrongCalls == 0 && HGLandscapeExitCalls == 0, @"Landscape forwarded to exit action or a different video");
@@ -626,7 +631,43 @@ static UIView *HGFixtureDramaContainer;
             HGWritePreference(@"landscape.enabled", @NO); HGRefreshLandscape(detail);
             HGCheck(![detail.view viewWithTag:0x48474C], @"Disabling native landscape entry left an overlay");
             [offscreenCell removeFromSuperview]; [exitNative removeFromSuperview]; [native removeFromSuperview];
+            [picture removeFromSuperview];
             [detail.view removeFromSuperview]; [detail removeFromParentViewController];
+            HGCheck(!HGBool(@"tab.liquid.enabled") && !HGBool(@"tab.liquid.video"), @"Experimental glass/video enabled by default");
+            CGRect originalBar = self.fixture.bar.frame, originalFeed = self.fixture.collection.frame;
+            CGRect originalButton = self.fixture.bar.buttons.firstObject.frame;
+            HGWritePreference(@"tab.liquid.enabled", @YES); [self.fixture.bar layoutSubviews];
+            UIView *black = [self.fixture.bar viewWithTag:0x484750];
+            HGCheck(black && !black.hidden && [black.backgroundColor isEqual:UIColor.blackColor], @"Glass did not provide black fallback without video coverage");
+            HGCheck(!black.userInteractionEnabled, @"Glass black backdrop intercepts native tab clicks");
+            UIView *glass = [self.fixture.bar viewWithTag:0x484751];
+            if (glass) {
+                HGCheck([NSStringFromClass(((UIVisualEffectView *)glass).effect.class) containsString:@"Glass"], @"Ordinary blur was advertised as liquid glass");
+                HGCheck(!glass.userInteractionEnabled && closeTo(glass.frame.origin.x, 12), @"Glass capsule geometry or hit handling invalid");
+            }
+            HGCheck(rectClose(self.fixture.bar.frame, originalBar) && rectClose(self.fixture.bar.buttons.firstObject.frame, originalButton), @"Glass changed native bar/button frames");
+            NSUInteger savedTaps = self.fixture.taps;
+            for (SSTabBarTextButton *button in self.fixture.bar.buttons) [button sendActionsForControlEvents:UIControlEventTouchUpInside];
+            HGCheck(self.fixture.taps == savedTaps + 3, @"Liquid glass broke original tab events"); self.fixture.taps = savedTaps;
+            for (NSUInteger pass = 0; pass < 10; pass++) [self.fixture.bar layoutSubviews];
+            NSUInteger blacks = 0; for (UIView *child in self.fixture.bar.subviews) if (child.tag == 0x484750) blacks++;
+            HGCheck(blacks == 1, @"Repeated glass layout accumulated backdrops");
+            TTPlayerView *render = [[TTPlayerView alloc] initWithFrame:HGProjectedPlayer.bounds];
+            TTMetalView *metal = [[TTMetalView alloc] initWithFrame:render.bounds]; [render addSubview:metal]; [HGProjectedPlayer addSubview:render];
+            BOOL originalClip = self.fixture.collection.clipsToBounds;
+            CGPoint originalOffset = self.fixture.collection.contentOffset;
+            HGWritePreference(@"tab.liquid.video", @YES); HGUpdateVideoExperiment(self.fixture.bar);
+            HGCheck(render.layer.sublayerTransform.m11 > 1 && HGVideoCoversBar(self.fixture.bar), @"Verified portrait render did not extend underneath bar");
+            HGCheck(rectClose(self.fixture.collection.frame, originalFeed) && CGPointEqualToPoint(self.fixture.collection.contentOffset, originalOffset), @"Render experiment modified paging geometry");
+            CATransform3D fixedRender = render.layer.sublayerTransform;
+            for (NSInteger pass = 0; pass < 5; pass++) HGUpdateVideoExperiment(self.fixture.bar);
+            HGCheck(CATransform3DEqualToTransform(fixedRender, render.layer.sublayerTransform), @"Render experiment compounded its scale");
+            self.fixture.collection.contentOffset = CGPointMake(0, 10);
+            HGCheck(CATransform3DIsIdentity(render.layer.sublayerTransform) && self.fixture.collection.clipsToBounds == originalClip, @"Scrolling did not restore renderer/clipping before changing offset");
+            HGWritePreference(@"tab.liquid.video", @NO); self.fixture.collection.contentOffset = originalOffset;
+            [render removeFromSuperview]; HGWritePreference(@"tab.liquid.enabled", @NO); [self.fixture.bar layoutSubviews];
+            HGCheck(![self.fixture.bar viewWithTag:0x484750] && ![self.fixture.bar viewWithTag:0x484751], @"Disabling liquid glass left its overlays");
+            HGCheck(rectClose(self.fixture.bar.frame, originalBar) && rectClose(self.fixture.collection.frame, originalFeed), @"Liquid experiment failed to restore geometry");
             HGCheck(!HGFixtureBottomImage.hidden && !HGFixtureBottomBlur.hidden, @"Native distribution background was modified");
             HGCheck([HGFixtureBottom.backgroundColor isEqual:UIColor.grayColor] && [HGFixtureBottomParent.backgroundColor isEqual:UIColor.grayColor], @"Native distribution color changed");
             HGCheck([self.fixture.view.backgroundColor isEqual:UIColor.grayColor] && [self.fixture.list.view.backgroundColor isEqual:UIColor.grayColor], @"Controller canvas was modified");
