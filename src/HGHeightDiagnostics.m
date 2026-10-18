@@ -11,7 +11,7 @@ static NSMutableDictionary<NSString *, HGHeightBurst *> *HGHeightBursts;
 static NSString *HGHeightTraceKey(void) { return [HGPreferencePrefix stringByAppendingString:@"height.lastTrace"]; }
 void HGHeightBeginAttempt(void) {
     HGHeightBursts = [NSMutableDictionary dictionary];
-    NSString *message = [NSString stringWithFormat:@"hgkiller 0.1.26 · 仅底栏诊断\n时间：%@\n高度：%.0f pt\n播放列表、分页、播放器尺寸保持原生。\n布局诊断只记录，不会自动关闭功能。", NSDate.date, HGNumber(@"tab.appearance.height")];
+    NSString *message = [NSString stringWithFormat:@"hgkiller 0.1.27 · 仅底栏诊断\n时间：%@\n高度：%.0f pt\n播放列表、分页、播放器尺寸保持原生。\n布局诊断只记录，不会自动关闭功能。", NSDate.date, HGNumber(@"tab.appearance.height")];
     [NSUserDefaults.standardUserDefaults setObject:message forKey:[HGPreferencePrefix stringByAppendingString:@"height.lastAttempt"]];
     [NSUserDefaults.standardUserDefaults synchronize];
 }

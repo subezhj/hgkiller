@@ -46,7 +46,6 @@ static BOOL HGCanForwardTab(UIView *host, UIView *button) {
 @end
 UITabBar *HGCreateNativeTabBar(UIView *host) {
     NSArray *buttons = HGTabButtons(host); if (buttons.count != 3) return nil;
-    for (UIView *button in buttons) if (!HGCanForwardTab(host, button)) return nil;
     UITabBar *native = [[UITabBar alloc] initWithFrame:host.bounds]; native.tag = 0x484751;
     native.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
     UITabBarAppearance *appearance = [UITabBarAppearance new]; [appearance configureWithTransparentBackground];
@@ -63,6 +62,9 @@ UITabBar *HGCreateNativeTabBar(UIView *host) {
     }
     native.items = items; native.selectedItem = items.firstObject;
     HGNativeTabProxy *proxy = [HGNativeTabProxy new]; proxy.host = host; native.delegate = proxy;
+    BOOL forwards = YES;
+    for (UIView *button in buttons) if (!HGCanForwardTab(host, button)) forwards = NO;
+    native.userInteractionEnabled = forwards;
     objc_setAssociatedObject(native, &HGNativeProxyKey, proxy, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     return native;
 }
@@ -159,7 +161,7 @@ void HGLiquidTabLayout(UIView *bar) {
         state = [HGLiquidState new]; state.paints = [NSMutableArray array];
         state.black = [UIView new]; state.black.backgroundColor = UIColor.blackColor;
         state.black.userInteractionEnabled = NO; state.black.accessibilityElementsHidden = YES; state.black.tag = 0x484750;
-        if (NSClassFromString(@"UIGlassEffect")) state.native = HGCreateNativeTabBar(bar);
+        state.native = HGCreateNativeTabBar(bar);
         objc_setAssociatedObject(bar, &HGLiquidKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         [bar insertSubview:state.black atIndex:0]; if (state.native) [bar addSubview:state.native];
     }
