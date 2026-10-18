@@ -162,7 +162,7 @@ void HGRefreshLandscape(UIViewController *controller) {
     if (!HGIsClass(controller, @"FQVShortVideoListViewController") || !controller.isViewLoaded) return;
     UIView *view = controller.view; UIWindow *window = view.window;
     HGLandscapeEntry *state = objc_getAssociatedObject(controller, &HGLandscapeKey);
-    BOOL enabled = HGEnabled() && HGBool(@"landscape.enabled") && window && window.windowLevel == UIWindowLevelNormal && window.bounds.size.height > window.bounds.size.width;
+    BOOL enabled = HGEnabled() && HGBool(@"landscape.enabled") && window && window.windowLevel == UIWindowLevelNormal && window.bounds.size.height > window.bounds.size.width && HGLandscapeVisible(view);
     if (!enabled) { [state.button removeFromSuperview]; return; }
     if (!state) {
         state = [HGLandscapeEntry new]; state.owner = controller;
