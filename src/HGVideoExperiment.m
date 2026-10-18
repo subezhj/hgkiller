@@ -22,6 +22,7 @@
 @end
 @implementation HGVideoExperiment @end
 static HGVideoExperiment *HGVideoState;
+static __weak UIView *HGVideoRejectedPicture;
 static NSString *HGVideoStatus;
 static BOOL HGVideoUpdating;
 static NSUInteger HGVideoScrollGeneration;
@@ -30,6 +31,7 @@ static UIView *HGAncestorNamed(UIView *view, NSString *name) {
     return nil;
 }
 void HGRestoreVideoExperiment(void) {
+    HGVideoRejectedPicture = nil;
     HGVideoExperiment *state = HGVideoState;
     if (!state) return;
     HGVideoState = nil;
@@ -45,6 +47,9 @@ void HGRestoreVideoExperiment(void) {
     [CATransaction commit];
     HGVideoStatus = @"视频扩展已恢复原生。";
     [state.bar setNeedsLayout];
+}
+void HGRestoreVideoExperimentForBar(UIView *bar) {
+    if (HGVideoState.bar == bar) HGRestoreVideoExperiment();
 }
 NSString *HGVideoExperimentStatus(void) { return HGVideoStatus ?: @"视频扩展未启用。"; }
 BOOL HGVideoCoversBar(UIView *bar) {
@@ -73,6 +78,7 @@ void HGUpdateVideoExperiment(UIView *bar) {
             HGRestoreVideoExperiment(); HGVideoStatus = @"视频扩展未启用。"; return;
         }
         UIView *picture = HGCurrentPicture(bar.window);
+        if (picture && picture == HGVideoRejectedPicture) return;
         UIViewController *owner = HGOwner(picture);
         UICollectionView *collection = (id)HGAncestorNamed(picture, @"FQVCollectionView");
         UIView *cell = HGAncestorNamed(picture, @"FQVShortVideoCell");
@@ -95,8 +101,13 @@ void HGUpdateVideoExperiment(UIView *bar) {
         }
         HGVideoExperiment *old = HGVideoState;
         if (old.picture == picture && CGRectEqualToRect(old.sourceBounds, picture.bounds) &&
-            CGRectEqualToRect(old.target, target) && CGPointEqualToPoint(old.offset, collection.contentOffset) &&
-            CATransform3DEqualToTransform(picture.layer.sublayerTransform, old.applied)) return;
+            CGRectEqualToRect(old.target, target) && CGPointEqualToPoint(old.offset, collection.contentOffset)) {
+            BOOL valid = cell.layer.mask == old.mask && CATransform3DEqualToTransform(picture.layer.sublayerTransform, old.applied);
+            for (HGClipSnapshot *clip in old.clips) if (clip.view.clipsToBounds) valid = NO;
+            if (valid) return;
+            HGRestoreVideoExperiment(); HGVideoRejectedPicture = picture;
+            HGVideoStatus = @"黑底：宿主重置了渲染或裁切状态，当前对象不再反复重写。"; return;
+        }
         HGRestoreVideoExperiment();
         if (!CATransform3DIsIdentity(picture.layer.sublayerTransform)) {
             HGVideoStatus = @"黑底：宿主已使用渲染子层变换。"; return;
@@ -143,12 +154,15 @@ static void HGVideoAfterScroll(UICollectionView *view) {
         }
     });
 }
+static void HGVideoBeforeScroll(UICollectionView *view) {
+    if (HGVideoState.collection == view || HGAncestorNamed(HGVideoRejectedPicture, @"FQVCollectionView") == view) HGRestoreVideoExperiment();
+}
 void HGInstallVideoExperiment(void) {
     SEL offset = @selector(setContentOffset:);
     HGInstall(NSClassFromString(@"FQVCollectionView"), offset, ^id(IMP original) {
         return ^(UICollectionView *view, CGPoint value) {
             BOOL changed = !CGPointEqualToPoint(value, view.contentOffset);
-            if (changed && HGVideoState.collection == view) HGRestoreVideoExperiment();
+            if (changed) HGVideoBeforeScroll(view);
             ((void (*)(id, SEL, CGPoint))original)(view, offset, value);
             if (changed) HGVideoAfterScroll(view);
         };
@@ -157,7 +171,7 @@ void HGInstallVideoExperiment(void) {
     HGInstall(NSClassFromString(@"FQVCollectionView"), bounds, ^id(IMP original) {
         return ^(UICollectionView *view, CGRect rect) {
             BOOL changed = !CGRectEqualToRect(view.bounds, rect);
-            if (changed && HGVideoState.collection == view) HGRestoreVideoExperiment();
+            if (changed) HGVideoBeforeScroll(view);
             ((void (*)(id, SEL, CGRect))original)(view, bounds, rect);
             if (changed) HGVideoAfterScroll(view);
         };

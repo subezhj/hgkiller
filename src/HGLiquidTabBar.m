@@ -50,7 +50,7 @@ void HGLiquidTabLayout(UIView *bar) {
     HGLiquidState *state = objc_getAssociatedObject(bar, &HGLiquidKey);
     BOOL on = HGEnabled() && HGBool(@"tab.liquid.enabled") && HGPlaybackVisible(bar) && bar.window.windowLevel == UIWindowLevelNormal && bar.window.bounds.size.height > bar.window.bounds.size.width;
     if (!on) {
-        HGRestoreVideoExperiment();
+        HGRestoreVideoExperimentForBar(bar);
         if (!state) return;
         for (HGLiquidPaint *paint in state.paints) {
             paint.view.layer.opacity = paint.opacity;
@@ -58,7 +58,8 @@ void HGLiquidTabLayout(UIView *bar) {
         }
         [state.black removeFromSuperview]; [state.glass removeFromSuperview];
         objc_setAssociatedObject(bar, &HGLiquidKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        HGLiquidStatus = @"液态玻璃底栏未启用。"; return;
+        if (!HGEnabled() || !HGBool(@"tab.liquid.enabled")) HGLiquidStatus = @"液态玻璃底栏未启用。";
+        return; // Keep the last playback diagnostic when entering settings hides the bar.
     }
     if (!state) {
         state = [HGLiquidState new]; state.paints = [NSMutableArray array];

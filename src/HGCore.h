@@ -46,6 +46,7 @@ FOUNDATION_EXPORT void HGLiquidTabLayout(UIView *bar);
 FOUNDATION_EXPORT NSString *HGLiquidDiagnosticText(void);
 FOUNDATION_EXPORT void HGUpdateVideoExperiment(UIView *bar);
 FOUNDATION_EXPORT void HGRestoreVideoExperiment(void);
+FOUNDATION_EXPORT void HGRestoreVideoExperimentForBar(UIView *bar);
 FOUNDATION_EXPORT BOOL HGVideoCoversBar(UIView *bar);
 FOUNDATION_EXPORT void HGInstallVideoExperiment(void);
 FOUNDATION_EXPORT NSString *HGVideoExperimentStatus(void);
