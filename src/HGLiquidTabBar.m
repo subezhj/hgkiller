@@ -94,7 +94,7 @@ static void HGLiquidClean(HGLiquidState *state, UIView *root, BOOL hostBar) {
     if (hostBar || row) { HGLiquidRemember(state, root); if (root.layer.backgroundColor) root.layer.backgroundColor = nil; }
     for (UIView *child in root.subviews.copy) {
         if (child == state.black || child == state.native) continue;
-        if (state.native && HGIsClass(child, @"SSTabBarTextButton")) {
+        if (state.native && (HGIsClass(child, @"SSTabBarTextButton") || (HGIsClass(root, @"CYLTabBar") && [child isKindOfClass:UIControl.class]))) {
             HGLiquidRemember(state, child);
             if (child.layer.opacity != 0) child.layer.opacity = 0;
             if (child.userInteractionEnabled) child.userInteractionEnabled = NO;
@@ -123,12 +123,17 @@ static void HGSyncNativeTab(HGLiquidState *state, UIView *host) {
         for (NSUInteger i = 0; i < buttons.count; i++) if ([buttons[i] isKindOfClass:UIControl.class] && ((UIControl *)buttons[i]).selected) { selected = i; break; }
     }
     if (selected < native.items.count && native.selectedItem != native.items[selected]) native.selectedItem = native.items[selected];
-    UIFont *font = [UIFont systemFontOfSize:MAX(9, 11 * HGNumber(@"tab.textScale")) weight:UIFontWeightMedium];
+    CGFloat scale = HGNumber(@"tab.textScale");
+    UIFont *font = fabs(scale - 1) < 0.001 ? nil : [UIFont systemFontOfSize:MAX(9, 11 * scale) weight:UIFontWeightMedium];
     for (NSUInteger i = 0; i < native.items.count; i++) {
         UITabBarItem *item = native.items[i]; UIFont *current = [item titleTextAttributesForState:UIControlStateNormal][NSFontAttributeName];
-        if (![current isEqual:font]) {
-            [item setTitleTextAttributes:@{NSFontAttributeName:font} forState:UIControlStateNormal];
-            [item setTitleTextAttributes:@{NSFontAttributeName:font} forState:UIControlStateSelected];
+        if (font ? ![current isEqual:font] : current != nil) {
+            for (NSNumber *number in @[@(UIControlStateNormal), @(UIControlStateSelected)]) {
+                UIControlState controlState = number.unsignedIntegerValue;
+                NSMutableDictionary *attributes = [[item titleTextAttributesForState:controlState] mutableCopy] ?: [NSMutableDictionary dictionary];
+                if (font) attributes[NSFontAttributeName] = font; else [attributes removeObjectForKey:NSFontAttributeName];
+                [item setTitleTextAttributes:attributes forState:controlState];
+            }
         }
         NSString *badge = i < source.items.count ? source.items[i].badgeValue : nil;
         if (item.badgeValue != badge && ![item.badgeValue isEqualToString:badge]) item.badgeValue = badge;
