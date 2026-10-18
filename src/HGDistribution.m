@@ -24,7 +24,7 @@ static void HGDistributionClear(UIView *view, UIView *root, NSMutableArray *save
 void HGDistributionAppearance(UIView *view) {
     if (!HGIsClass(view, @"SSShortVideoBottomDistributionView")) return;
     NSMutableArray *saved = objc_getAssociatedObject(view, &HGDistributionKey);
-    if (!HGEnabled() || !HGBool(@"tab.liquid.enabled")) {
+    if (!HGEnabled() || !HGBool(@"distribution.transparent")) {
         for (HGDistributionPaint *paint in saved) { paint.view.layer.opacity = paint.opacity; paint.view.layer.backgroundColor = paint.background.CGColor; }
         objc_setAssociatedObject(view, &HGDistributionKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC); return;
     }

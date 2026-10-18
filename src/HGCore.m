@@ -23,7 +23,7 @@ static NSDictionary *HGDefaults(void) {
         @"right.scale": @0.80, @"right.gap": @6.0,
         @"tab.textScale": @1.0, @"tab.appearance.enabled": @NO, @"tab.layout.enabled": @NO, @"tab.appearance.height": @84.0, @"video.extend": @NO,
         @"video.fillPortrait": @NO,
-        @"tab.liquid.enabled": @NO, @"tab.liquid.video": @NO,
+        @"tab.liquid.enabled": @NO, @"tab.liquid.video": @NO, @"distribution.transparent": @NO,
         @"caption.enabled": @YES, @"caption.titleScale": @1.0, @"caption.descriptionScale": @1.0,
         @"top.enabled": @YES, @"top.scale": @0.85,
         @"profiles.enabled": @NO, @"landscape.enabled": @NO,
@@ -87,6 +87,9 @@ void HGInitializePreferences(void) {
     // Every diagnostic launch starts off so a prior hang does not prevent reading its record.
     NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
     [defaults setBool:NO forKey:[HGPreferencePrefix stringByAppendingString:@"tab.layout.enabled"]];
+    NSString *transparentKey = [HGPreferencePrefix stringByAppendingString:@"distribution.transparent"];
+    if (![defaults objectForKey:transparentKey])
+        [defaults setBool:[defaults boolForKey:[HGPreferencePrefix stringByAppendingString:@"tab.liquid.enabled"]] forKey:transparentKey];
     HGReloadPreferences();
 }
 BOOL HGEnabled(void) { return !HGSafetyTripped && [HGPreferences[@"enabled"] boolValue]; }
