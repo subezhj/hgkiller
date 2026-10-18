@@ -72,11 +72,17 @@ void HGInstallCaption(void) {
     for (NSString *name in @[@"SSShortVideoOutterSeriesLeftContainerView", @"SSShortVideoSingleSeriesInfoLeftContainerView"])
         HGHookLayout(name, ^(UIView *view) { HGCaptionRepair(view); HGCaptionFonts(view); HGApplyViewing(view); });
     SEL setter = @selector(setFont:);
-    HGInstall(NSClassFromString(@"YYLabel"), setter, ^id(IMP original) {
+    // Red Fruit uses YYLabel for some descriptions, but the title/"展开"
+    // controls are ordinary UILabels on several player variants. Hook both
+    // classes so a later host font reset cannot silently undo the slider.
+    for (Class labelClass in @[NSClassFromString(@"YYLabel"), UILabel.class]) {
+        if (!labelClass) continue;
+        HGInstall(labelClass, setter, ^id(IMP original) {
         return ^(UIView *view, UIFont *font) {
             if (HGHandleCaptionFont(view, font, ^(UIFont *output) { ((void (*)(id, SEL, UIFont *))original)(view, setter, output); })) return;
             ((void (*)(id, SEL, UIFont *))original)(view, setter, font);
         };
-    });
+        });
+    }
 }
 
