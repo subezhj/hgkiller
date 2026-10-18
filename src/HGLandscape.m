@@ -45,7 +45,7 @@ static UIControl *HGFindLandscape(UIView *view, UIView *root, UIControlEvents *e
             if (!(control.allControlEvents & candidate)) continue;
             BOOL match = HGLandscapeWords([label stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet], YES);
             for (id target in control.allTargets) {
-                if (target != NSNull.null && [NSStringFromClass([target class]) hasPrefix:@"HG"]) continue;
+                if ([target isKindOfClass:HGLandscapeEntry.class]) continue;
                 for (NSString *action in [control actionsForTarget:target == NSNull.null ? nil : target forControlEvent:candidate]) {
                     if (log.count < 40) [log addObject:[NSString stringWithFormat:@"%@ → %@ %@", NSStringFromClass(control.class), target == NSNull.null ? @"responder" : NSStringFromClass([target class]), action]];
                     if (HGLandscapeWords(action, NO)) match = YES;
