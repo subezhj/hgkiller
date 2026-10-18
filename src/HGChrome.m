@@ -173,6 +173,10 @@ void HGInstallChrome(void) {
         };
     });
     HGHookControllerLayout(@"FQVShortVideoListViewController", ^(UIViewController *controller) { HGFindRightContainers(controller.view); HGRefreshLandscape(controller); });
+    for (NSString *name in @[@"TTPlayerView", @"FQVShortVideoVPlayerOutterMultiSeriesControlView", @"FQVShortVideoDerivativeVideoControlView"])
+        HGHookLayout(name, ^(UIView *view) {
+            if (HGEnabled() && HGBool(@"landscape.enabled") && view.window && !view.hidden) HGRefreshLandscape(HGOwner(view));
+        });
     SEL moved = @selector(didMoveToWindow);
     HGInstall(NSClassFromString(@"SSShortVideoRightInteractionView"), moved, ^id(IMP original) {
         return ^(UIView *container) { ((void (*)(id, SEL))original)(container, moved); HGTrackRight(container); };

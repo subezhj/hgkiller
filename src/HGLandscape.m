@@ -93,8 +93,43 @@ static UIControl *HGFindLandscape(UIView *view, UIView *root, UIControlEvents *e
     }
     return nil;
 }
+static void HGLandscapePlacementViews(UIView *view, UIView *root, CGFloat *bottom, CGRect *picture) {
+    if (view.tag == HGLandscapeTag || view.hidden || view.alpha < 0.01 ||
+        (HGIsClass(view, @"FQVShortVideoCell") && !HGCurrentVideoCell(view, root))) return;
+    if (HGLandscapeVisible(view)) {
+        CGRect rect = CGRectIntersection(root.bounds, [view convertRect:view.bounds toView:root]);
+        if (!CGRectIsNull(rect) && rect.size.width > 1 && rect.size.height > 1) {
+            if (HGIsClass(view, @"FQVCollectionView")) *bottom = MIN(*bottom, CGRectGetMaxY(rect));
+            for (NSString *name in @[@"SSShortVideoOutterSeriesLeftContainerView", @"SSShortVideoSingleSeriesInfoLeftContainerView", @"SSShortVideoDerivateLeftContainerView", @"SSShortVideoBottomDistributionView"])
+                if (HGIsClass(view, name)) *bottom = MIN(*bottom, CGRectGetMinY(rect) - 12);
+            // FLEX exposes the actual aspect-fit picture on TTPlayerView, not FQVPlayer.
+            if (HGIsClass(view, @"TTPlayerView") && rect.size.width > root.bounds.size.width * 0.5 &&
+                (CGRectIsNull(*picture) || rect.size.width * rect.size.height > picture->size.width * picture->size.height)) *picture = rect;
+        }
+    }
+    for (UIView *child in view.subviews) HGLandscapePlacementViews(child, root, bottom, picture);
+}
+static CGRect HGLandscapeButtonFrame(UIView *root, UIControl *native) {
+    UIWindow *window = root.window;
+    CGRect visible = CGRectIntersection(root.bounds, [root convertRect:window.bounds fromView:window]);
+    CGFloat top = MAX(CGRectGetMinY(visible) + 12, [root convertPoint:CGPointMake(0, window.safeAreaInsets.top + 64) fromView:window].y);
+    CGFloat bottom = MIN(CGRectGetMaxY(visible) - 12, [root convertPoint:CGPointMake(0, window.bounds.size.height - window.safeAreaInsets.bottom - 12) fromView:window].y);
+    CGRect picture = CGRectNull;
+    HGLandscapePlacementViews(root, root, &bottom, &picture);
+    CGFloat width = MIN(96, MAX(44, visible.size.width - 32)), height = 36;
+    CGFloat y = bottom - height;
+    if (!CGRectIsNull(picture) && CGRectGetMaxY(picture) + 12 + height <= bottom)
+        y = CGRectGetMaxY(picture) + 12; // Landscape picture: use the black area below it.
+    else if (CGRectIsNull(picture) && native) {
+        CGRect anchor = [native convertRect:native.bounds toView:root];
+        if (anchor.size.width > 1 && anchor.size.height > 1 && fabs(CGRectGetMidX(anchor) - CGRectGetMidX(visible)) < 32 &&
+            CGRectGetMinY(anchor) >= top && CGRectGetMinY(anchor) + height <= bottom) y = CGRectGetMinY(anchor);
+    }
+    y = MAX(top, MIN(y, bottom - height));
+    return CGRectMake(CGRectGetMidX(visible) - width / 2, y, width, height);
+}
 static void HGLandscapeRecord(NSString *text) {
-    [NSUserDefaults.standardUserDefaults setObject:[NSString stringWithFormat:@"hgkiller 0.1.21\n%@\n%@", NSDate.date, text] forKey:[HGPreferencePrefix stringByAppendingString:@"landscape.lastDiagnostic"]];
+    [NSUserDefaults.standardUserDefaults setObject:[NSString stringWithFormat:@"hgkiller 0.1.22\n%@\n%@", NSDate.date, text] forKey:[HGPreferencePrefix stringByAppendingString:@"landscape.lastDiagnostic"]];
 }
 NSString *HGLandscapeDiagnosticText(void) {
     return [NSUserDefaults.standardUserDefaults stringForKey:[HGPreferencePrefix stringByAppendingString:@"landscape.lastDiagnostic"]] ?: @"尚未点击补充横屏入口。";
@@ -140,11 +175,10 @@ void HGRefreshLandscape(UIViewController *controller) {
         objc_setAssociatedObject(controller, &HGLandscapeKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
     if (state.button.superview != view) [view addSubview:state.button];
-    CGFloat top = [view convertPoint:CGPointMake(0, window.safeAreaInsets.top + 56) fromView:window].y;
-    CGRect rect = CGRectMake(MAX(8, view.bounds.size.width - 100), MAX(8, top), 88, 32);
-    if (!CGRectEqualToRect(state.button.frame, rect)) state.button.frame = rect;
     UIControlEvents event = 0; NSMutableArray *log = [NSMutableArray array];
     UIControl *native = HGFindLandscape(view, view, &event, log);
+    CGRect rect = HGLandscapeButtonFrame(view, native);
+    if (!CGRectEqualToRect(state.button.frame, rect)) state.button.frame = rect;
     BOOL nativeVisible = native && native.enabled && HGLandscapeVisible(native) && CGRectIntersectsRect([native convertRect:native.bounds toView:view], view.bounds);
     if (state.button.hidden != nativeVisible) state.button.hidden = nativeVisible;
     if (view.subviews.lastObject != state.button) [view bringSubviewToFront:state.button];

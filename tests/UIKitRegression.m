@@ -80,6 +80,8 @@ static void HGWriteProgress(NSInteger phase) {
 @implementation FQVShortVideoVPlayerOutterMultiSeriesControlView @end
 @interface FQVPlayer : UIView @end
 @implementation FQVPlayer @end
+@interface TTPlayerView : UIView @end
+@implementation TTPlayerView @end
 static NSUInteger HGLandscapeCalls, HGLandscapeWrongCalls, HGLandscapeExitCalls;
 @interface SSFixtureLandscapeTarget : NSObject
 @property(nonatomic) BOOL offscreen;
@@ -568,6 +570,21 @@ static UIView *HGFixtureDramaContainer;
             HGWritePreference(@"landscape.enabled", @YES); HGRefreshLandscape(detail);
             UIButton *proxy = (id)[detail.view viewWithTag:0x48474C];
             HGCheck(proxy && !proxy.hidden, @"Hidden native landscape button did not gain a supplementary entry");
+            HGWritePreference(@"clean.caption", @NO);
+            UIView *placementCaption = [[SSShortVideoSingleSeriesInfoLeftContainerView alloc] initWithFrame:CGRectMake(16, 645, 282, 80)];
+            [detail.view addSubview:placementCaption]; placementCaption.hidden = NO;
+            TTPlayerView *picture = [[TTPlayerView alloc] initWithFrame:CGRectMake(0, 278.9, detail.view.bounds.size.width, 226.1)];
+            [detail.view addSubview:picture]; HGRefreshLandscape(detail);
+            HGCheck(closeTo(CGRectGetMidX(proxy.frame), CGRectGetMidX(detail.view.bounds)), @"Full-watch entry was not horizontally centered");
+            HGCheck(closeTo(CGRectGetMinY(proxy.frame), 517), @"Landscape picture did not place full-watch entry in lower letterbox");
+            HGCheck(!CGRectIntersectsRect(proxy.frame, picture.frame) && !CGRectIntersectsRect(proxy.frame, placementCaption.frame), @"Full-watch entry covered picture or captions");
+            picture.frame = detail.view.bounds; HGRefreshLandscape(detail);
+            HGCheck(closeTo(CGRectGetMaxY(proxy.frame), 633), @"Portrait full-watch entry did not clear caption by 12 points");
+            HGCheck(!CGRectIntersectsRect(proxy.frame, placementCaption.frame), @"Portrait full-watch entry overlapped caption");
+            CGRect stableFrame = proxy.frame;
+            for (NSInteger pass = 0; pass < 5; pass++) HGRefreshLandscape(detail);
+            HGCheck(rectClose(proxy.frame, stableFrame) && rectClose(picture.frame, detail.view.bounds), @"Entry placement drifted or changed player geometry");
+            [picture removeFromSuperview]; [placementCaption removeFromSuperview];
             [proxy sendActionsForControlEvents:UIControlEventTouchUpInside];
             HGCheck(HGLandscapeCalls == 1 && HGLandscapeWrongCalls == 0 && HGLandscapeExitCalls == 0, @"Landscape forwarded to exit action or a different video");
             HGCheck(native.hidden, @"Supplementary action changed native control visibility");
