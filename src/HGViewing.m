@@ -81,12 +81,20 @@ void HGInstallViewing(void) {
         HGInstall(NSClassFromString(name), moved, ^id(IMP original) {
             return ^(UIView *view) { ((void (*)(id, SEL))original)(view, moved); HGApplyViewing(view); };
         });
+        SEL parent = @selector(didMoveToSuperview);
+        HGInstall(NSClassFromString(name), parent, ^id(IMP original) {
+            return ^(UIView *view) { ((void (*)(id, SEL))original)(view, parent); HGApplyViewing(view); };
+        });
     }
     HGHookLayout(@"SSShortVideoBottomDistributionView", ^(UIView *view) { HGApplyViewing(view); });
     HGHookLayout(@"FQVShortVideoGradientLayerView", ^(UIView *view) { HGApplyViewing(view); });
     SEL moved = @selector(didMoveToWindow);
     HGInstall(NSClassFromString(@"FQVShortVideoGradientLayerView"), moved, ^id(IMP original) {
         return ^(UIView *view) { ((void (*)(id, SEL))original)(view, moved); HGApplyViewing(view); };
+    });
+    SEL parent = @selector(didMoveToSuperview);
+    HGInstall(NSClassFromString(@"FQVShortVideoGradientLayerView"), parent, ^id(IMP original) {
+        return ^(UIView *view) { ((void (*)(id, SEL))original)(view, parent); HGApplyViewing(view); };
     });
     SEL alpha = @selector(setAlpha:);
     HGInstall(NSClassFromString(@"FQVShortVideoGradientLayerView"), alpha, ^id(IMP original) {
