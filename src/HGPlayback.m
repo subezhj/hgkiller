@@ -1,10 +1,11 @@
 #import "HGCore.h"
 BOOL HGPlaybackVisible(UIView *view) {
-    if (!view.window) return NO;
-    CGRect visible = CGRectIntersection([view convertRect:view.bounds toView:view.window], view.window.bounds);
+    UIWindow *window = [view isKindOfClass:UIWindow.class] ? (id)view : view.window;
+    if (!window) return NO;
+    CGRect visible = CGRectIntersection([view convertRect:view.bounds toView:window], window.bounds);
     for (UIView *node = view; node; node = node.superview) {
         if (node.hidden || node.alpha < 0.01) return NO;
-        if (node.clipsToBounds) visible = CGRectIntersection(visible, [node convertRect:node.bounds toView:view.window]);
+        if (node.clipsToBounds) visible = CGRectIntersection(visible, [node convertRect:node.bounds toView:window]);
     }
     return !CGRectIsNull(visible) && visible.size.width > 1 && visible.size.height > 1;
 }
