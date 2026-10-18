@@ -29,29 +29,63 @@ static BOOL HGLandscapeWords(NSString *string, BOOL label) {
     NSString *text = string.lowercaseString;
     for (NSString *word in @[@"exit", @"dismiss", @"close", @"portrait", @"cancel", @"退出", @"关闭"])
         if ([text containsString:word]) return NO;
-    if (label) return [text containsString:@"横屏"] || [text containsString:@"全屏播放"] || [text isEqualToString:@"全屏"];
+    if (label) return [text containsString:@"横屏"] || [text containsString:@"全屏播放"] || [text containsString:@"全屏观看"] || [text isEqualToString:@"全屏"];
     for (NSString *word in @[@"landscape", @"horizontal", @"fullscreen", @"full_screen"])
         if ([text containsString:word]) return YES;
     return NO;
 }
+// Red Fruit uses an independent UILabel inside its 88 x 28 native button,
+// rather than UIButton.currentTitle (FLEX dump 1792331057).
+static NSString *HGLandscapeControlText(UIView *view) {
+    NSMutableArray<NSString *> *parts = [NSMutableArray array];
+    if (view.accessibilityLabel.length) [parts addObject:view.accessibilityLabel];
+    if ([view isKindOfClass:UILabel.class]) {
+        UILabel *label = (id)view;
+        NSString *text = label.text ?: label.attributedText.string;
+        if (text.length) [parts addObject:text];
+    }
+    if ([view isKindOfClass:UIButton.class]) {
+        UIButton *button = (id)view;
+        NSString *text = button.currentTitle ?: button.currentAttributedTitle.string;
+        if (text.length) [parts addObject:text];
+    }
+    for (UIView *child in view.subviews) {
+        // A nested control owns its own action; its label cannot identify its parent.
+        if ([child isKindOfClass:UIControl.class]) continue;
+        NSString *text = HGLandscapeControlText(child);
+        if (text.length) [parts addObject:text];
+    }
+    return [parts componentsJoinedByString:@" "];
+}
+static BOOL HGLandscapeInactiveContainer(UIView *view) {
+    return (HGIsClass(view, @"FQVShortVideoVPlayerOutterMultiSeriesControlView") ||
+            HGIsClass(view, @"FQVShortVideoDerivativeVideoControlView")) && (view.hidden || view.alpha < 0.01);
+}
 static UIControl *HGFindLandscape(UIView *view, UIView *root, UIControlEvents *event, NSMutableArray<NSString *> *log) {
-    if (view.tag == HGLandscapeTag || (HGIsClass(view, @"FQVShortVideoCell") && !HGCurrentVideoCell(view, root))) return nil;
+    if (view.tag == HGLandscapeTag || HGLandscapeInactiveContainer(view) || (HGIsClass(view, @"FQVShortVideoCell") && !HGCurrentVideoCell(view, root))) return nil;
     if ([view isKindOfClass:UIControl.class]) {
         UIControl *control = (id)view;
-        NSString *label = view.accessibilityLabel ?: @"";
-        if ([view isKindOfClass:UIButton.class]) label = [label stringByAppendingFormat:@" %@", ((UIButton *)view).currentTitle ?: @""];
+        NSString *label = HGLandscapeControlText(view);
         for (NSNumber *number in @[@(UIControlEventTouchUpInside), @(UIControlEventPrimaryActionTriggered)]) {
             UIControlEvents candidate = number.unsignedIntegerValue;
             if (!(control.allControlEvents & candidate)) continue;
             BOOL match = HGLandscapeWords([label stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet], YES);
+            BOOL forbidden = NO, bound = NO;
             for (id target in control.allTargets) {
                 if ([target isKindOfClass:HGLandscapeEntry.class]) continue;
                 for (NSString *action in [control actionsForTarget:target == NSNull.null ? nil : target forControlEvent:candidate]) {
+                    bound = YES;
                     if (log.count < 40) [log addObject:[NSString stringWithFormat:@"%@ → %@ %@", NSStringFromClass(control.class), target == NSNull.null ? @"responder" : NSStringFromClass([target class]), action]];
                     if (HGLandscapeWords(action, NO)) match = YES;
+                    NSString *lower = action.lowercaseString;
+                    for (NSString *word in @[@"exit", @"dismiss", @"close", @"portrait", @"cancel"])
+                        if ([lower containsString:word]) forbidden = YES;
                 }
             }
-            if (match) { *event = candidate; return control; }
+            if (match && bound && !forbidden) {
+                [log addObject:[NSString stringWithFormat:@"选中原生按钮：%@ text=%@ frame=%@ hidden=%@", NSStringFromClass(control.class), label, NSStringFromCGRect(control.frame), control.hidden ? @"YES" : @"NO"]];
+                *event = candidate; return control;
+            }
         }
     }
     for (UIView *child in view.subviews) {
@@ -60,7 +94,7 @@ static UIControl *HGFindLandscape(UIView *view, UIView *root, UIControlEvents *e
     return nil;
 }
 static void HGLandscapeRecord(NSString *text) {
-    [NSUserDefaults.standardUserDefaults setObject:[NSString stringWithFormat:@"hgkiller 0.1.20\n%@\n%@", NSDate.date, text] forKey:[HGPreferencePrefix stringByAppendingString:@"landscape.lastDiagnostic"]];
+    [NSUserDefaults.standardUserDefaults setObject:[NSString stringWithFormat:@"hgkiller 0.1.21\n%@\n%@", NSDate.date, text] forKey:[HGPreferencePrefix stringByAppendingString:@"landscape.lastDiagnostic"]];
 }
 NSString *HGLandscapeDiagnosticText(void) {
     return [NSUserDefaults.standardUserDefaults stringForKey:[HGPreferencePrefix stringByAppendingString:@"landscape.lastDiagnostic"]] ?: @"尚未点击补充横屏入口。";
@@ -98,7 +132,7 @@ void HGRefreshLandscape(UIViewController *controller) {
     if (!state) {
         state = [HGLandscapeEntry new]; state.owner = controller;
         state.button = [UIButton buttonWithType:UIButtonTypeSystem]; state.button.tag = HGLandscapeTag;
-        [state.button setTitle:@"横屏" forState:UIControlStateNormal]; [state.button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+        [state.button setTitle:@"全屏观看" forState:UIControlStateNormal]; [state.button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
         state.button.titleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
         state.button.backgroundColor = [UIColor.blackColor colorWithAlphaComponent:0.4]; state.button.layer.cornerRadius = 16;
         state.button.accessibilityLabel = @"调用红果原生横屏播放";
@@ -107,7 +141,7 @@ void HGRefreshLandscape(UIViewController *controller) {
     }
     if (state.button.superview != view) [view addSubview:state.button];
     CGFloat top = [view convertPoint:CGPointMake(0, window.safeAreaInsets.top + 56) fromView:window].y;
-    CGRect rect = CGRectMake(MAX(8, view.bounds.size.width - 84), MAX(8, top), 72, 32);
+    CGRect rect = CGRectMake(MAX(8, view.bounds.size.width - 100), MAX(8, top), 88, 32);
     if (!CGRectEqualToRect(state.button.frame, rect)) state.button.frame = rect;
     UIControlEvents event = 0; NSMutableArray *log = [NSMutableArray array];
     UIControl *native = HGFindLandscape(view, view, &event, log);

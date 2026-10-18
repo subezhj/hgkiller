@@ -85,10 +85,12 @@ static NSUInteger HGLandscapeCalls, HGLandscapeWrongCalls, HGLandscapeExitCalls;
 @property(nonatomic) BOOL offscreen;
 - (void)enterFullScreen:(id)sender;
 - (void)exitFullScreen:(id)sender;
+- (void)onButtonTap:(id)sender;
 @end
 @implementation SSFixtureLandscapeTarget
 - (void)enterFullScreen:(id)sender { if (self.offscreen) HGLandscapeWrongCalls++; else HGLandscapeCalls++; }
 - (void)exitFullScreen:(id)sender { HGLandscapeExitCalls++; }
+- (void)onButtonTap:(id)sender { [self enterFullScreen:sender]; }
 @end
 
 @interface HGFixtureLayout : UICollectionViewLayout @end
@@ -570,6 +572,25 @@ static UIView *HGFixtureDramaContainer;
             HGCheck(HGLandscapeCalls == 1 && HGLandscapeWrongCalls == 0 && HGLandscapeExitCalls == 0, @"Landscape forwarded to exit action or a different video");
             HGCheck(native.hidden, @"Supplementary action changed native control visibility");
             native.hidden = NO; HGRefreshLandscape(detail); HGCheck(proxy.hidden, @"Visible native landscape button was duplicated");
+            [native removeTarget:nativeTarget action:@selector(enterFullScreen:) forControlEvents:UIControlEventTouchUpInside];
+            [native addTarget:nativeTarget action:@selector(onButtonTap:) forControlEvents:UIControlEventTouchUpInside];
+            native.frame = CGRectMake(157, 525, 88, 28);
+            UIView *labelWrapper = [[UIView alloc] initWithFrame:native.bounds];
+            UILabel *fullWatch = [[UILabel alloc] initWithFrame:CGRectMake(30, 5.7, 48, 17)];
+            fullWatch.attributedText = [[NSAttributedString alloc] initWithString:@"全屏观看"];
+            [labelWrapper addSubview:fullWatch]; [native addSubview:labelWrapper];
+            native.hidden = YES; HGRefreshLandscape(detail);
+            HGCheck(!proxy.hidden, @"FLEX native watch-fullscreen UILabel was not identified");
+            [proxy sendActionsForControlEvents:UIControlEventTouchUpInside];
+            HGCheck(HGLandscapeCalls == 2 && HGLandscapeWrongCalls == 0, @"Opaque native action was not forwarded using descendant full-watch label");
+            HGCheck([HGLandscapeDiagnosticText() containsString:@"全屏观看"], @"Selected native full-watch control was absent from diagnostic");
+            native.hidden = NO; HGRefreshLandscape(detail);
+            HGCheck(proxy.hidden, @"FLEX native full-watch control was duplicated");
+            [native removeTarget:nativeTarget action:@selector(onButtonTap:) forControlEvents:UIControlEventTouchUpInside];
+            [native addTarget:nativeTarget action:@selector(exitFullScreen:) forControlEvents:UIControlEventTouchUpInside];
+            [proxy sendActionsForControlEvents:UIControlEventTouchUpInside];
+            HGCheck(HGLandscapeExitCalls == 0, @"Full-watch text bypassed exit-action exclusion");
+            [detail dismissViewControllerAnimated:NO completion:nil];
             HGWritePreference(@"landscape.enabled", @NO); HGRefreshLandscape(detail);
             HGCheck(![detail.view viewWithTag:0x48474C], @"Disabling native landscape entry left an overlay");
             [offscreenCell removeFromSuperview]; [exitNative removeFromSuperview]; [native removeFromSuperview];
