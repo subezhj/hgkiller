@@ -34,13 +34,31 @@ static BOOL HGCanForwardTab(UIView *host, UIView *button) {
     UIView *button = buttons[index];
     if ([button isKindOfClass:UIControl.class]) {
         UIControl *control = (UIControl *)button;
-        [control sendActionsForControlEvents:UIControlEventTouchUpInside];
+        BOOL dispatched = NO;
+        // Red Fruit has builds where actions are attached to a wrapper target
+        // and the visible control does not advertise TouchUpInside. Re-send
+        // every registered target/action through UIApplication as UIKit does
+        // for a real touch.
+        for (id target in control.allTargets) {
+            for (NSString *name in [control actionsForTarget:target forControlEvent:UIControlEventTouchUpInside]) {
+                SEL send = NSSelectorFromString(@"sendAction:to:from:forEvent:");
+                if ([UIApplication.sharedApplication respondsToSelector:send])
+                    dispatched = ((BOOL (*)(id, SEL, SEL, id, id, UIEvent *))objc_msgSend)(UIApplication.sharedApplication, send, NSSelectorFromString(name), target, control, nil) || dispatched;
+            }
+        }
+        if (!dispatched) [control sendActionsForControlEvents:UIControlEventTouchUpInside];
     }
     else {
         UITabBar *source = HGSourceTabBar(self.host);
         if (index < source.items.count && [source.delegate respondsToSelector:@selector(tabBar:didSelectItem:)]) {
             source.selectedItem = source.items[index];
             [source.delegate tabBar:source didSelectItem:source.items[index]];
+        }
+    }
+    for (UIResponder *next = self.host; next; next = next.nextResponder) {
+        if ([next isKindOfClass:UITabBarController.class]) {
+            ((UITabBarController *)next).selectedIndex = index;
+            break;
         }
     }
     [self.host setNeedsLayout];
