@@ -8,11 +8,21 @@ static char HGCaptionGeometryKey;
 @end
 @implementation HGCaptionGeometry @end
 static void HGCaptionRepair(UIView *container) {
-    BOOL on = HGEnabled() && HGBool(@"tab.liquid.enabled");
+    BOOL on = HGEnabled() && HGBool(HGViewingKey(container, @"caption.enabled"));
     CGFloat descriptionY = CGFLOAT_MAX;
     for (UIView *row in container.subviews)
         if (!row.hidden && ([row isKindOfClass:UIScrollView.class] || HGIsClass(row, @"YYLabel")) && row.bounds.size.height > 1)
             descriptionY = MIN(descriptionY, row.frame.origin.y);
+    CGFloat distributionY = CGFLOAT_MAX;
+    for (UIView *ancestor = container; ancestor && ancestor.superview; ancestor = ancestor.superview) {
+        for (UIView *sibling in ancestor.superview.subviews) {
+            UIView *entry = HGFindView(sibling, @"SSShortVideoBottomDistributionView");
+            if (entry) {
+                CGRect rect = [entry convertRect:entry.bounds toView:container];
+                distributionY = MIN(distributionY, rect.origin.y);
+            }
+        }
+    }
     for (UIView *row in container.subviews) {
         HGCaptionGeometry *state = objc_getAssociatedObject(row, &HGCaptionGeometryKey);
         if (!on) {
@@ -27,6 +37,8 @@ static void HGCaptionRepair(UIView *container) {
         if (!state.active || !CGRectEqualToRect(row.frame, state.applied)) state.host = row.frame;
         CGRect target = state.host;
         CGFloat maximum = MAX(0, MIN(descriptionY - target.size.height - 8, container.bounds.size.height - target.size.height));
+        if (distributionY != CGFLOAT_MAX)
+            maximum = MAX(0, MIN(maximum, distributionY - target.size.height - 8));
         target.origin.y = MIN(target.origin.y, maximum);
         state.applied = target; state.active = !CGRectEqualToRect(target, state.host);
         if (!CGRectEqualToRect(row.frame, target)) HGApply(^{ row.frame = target; });
