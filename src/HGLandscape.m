@@ -109,7 +109,7 @@ static CGRect HGLandscapeButtonFrame(UIView *root) {
     return CGRectMake(x, y, width, height);
 }
 static void HGLandscapeRecord(NSString *text) {
-    [NSUserDefaults.standardUserDefaults setObject:[NSString stringWithFormat:@"hgkiller 0.1.32\n%@\n%@", NSDate.date, text] forKey:[HGPreferencePrefix stringByAppendingString:@"landscape.lastDiagnostic"]];
+    [NSUserDefaults.standardUserDefaults setObject:[NSString stringWithFormat:@"hgkiller 0.1.33\n%@\n%@", NSDate.date, text] forKey:[HGPreferencePrefix stringByAppendingString:@"landscape.lastDiagnostic"]];
 }
 NSString *HGLandscapeDiagnosticText(void) {
     return [NSUserDefaults.standardUserDefaults stringForKey:[HGPreferencePrefix stringByAppendingString:@"landscape.lastDiagnostic"]] ?: @"尚未点击补充横屏入口。";

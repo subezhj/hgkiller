@@ -96,6 +96,7 @@ UITabBar *HGCreateNativeTabBar(UIView *host) {
 @implementation HGLiquidPaint @end
 @interface HGLiquidState : NSObject
 @property(nonatomic, strong) UIView *black;
+@property(nonatomic, strong) UIVisualEffectView *backdrop;
 @property(nonatomic, strong) UITabBar *native;
 @property(nonatomic, strong) NSMutableArray<HGLiquidPaint *> *paints;
 @end
@@ -109,12 +110,12 @@ static void HGLiquidRemember(HGLiquidState *state, UIView *view) {
     [state.paints addObject:paint];
 }
 static void HGLiquidClean(HGLiquidState *state, UIView *root, BOOL hostBar) {
-    if (root == state.black || root == state.native) return;
+    if (root == state.black || root == state.native || root == state.backdrop) return;
     BOOL row = NO;
     for (UIView *child in root.subviews) if (HGIsClass(child, @"SSTabBarTextButton")) row = YES;
     if (hostBar || row) { HGLiquidRemember(state, root); if (root.layer.backgroundColor) root.layer.backgroundColor = nil; }
     for (UIView *child in root.subviews.copy) {
-        if (child == state.black || child == state.native) continue;
+        if (child == state.black || child == state.native || child == state.backdrop) continue;
         if (state.native && (HGIsClass(child, @"SSTabBarTextButton") || (HGIsClass(root, @"CYLTabBar") && [child isKindOfClass:UIControl.class]))) {
             HGLiquidRemember(state, child);
             if (child.layer.opacity != 0) child.layer.opacity = 0;
@@ -171,7 +172,7 @@ void HGLiquidTabLayout(UIView *bar) {
             paint.view.layer.opacity = paint.opacity; paint.view.layer.backgroundColor = paint.background.CGColor;
             paint.view.userInteractionEnabled = paint.interaction;
         }
-        [state.black removeFromSuperview]; [state.native removeFromSuperview];
+        [state.black removeFromSuperview]; [state.backdrop removeFromSuperview]; [state.native removeFromSuperview];
         objc_setAssociatedObject(bar, &HGLiquidKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         if (!HGEnabled() || !HGBool(@"tab.liquid.enabled")) HGLiquidStatus = @"液态玻璃底栏未启用。";
         return;
@@ -180,9 +181,16 @@ void HGLiquidTabLayout(UIView *bar) {
         state = [HGLiquidState new]; state.paints = [NSMutableArray array];
         state.black = [UIView new]; state.black.backgroundColor = UIColor.blackColor;
         state.black.userInteractionEnabled = NO; state.black.accessibilityElementsHidden = YES; state.black.tag = 0x484750;
+        UIBlurEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemMaterialDark];
+        state.backdrop = [[UIVisualEffectView alloc] initWithEffect:blur];
+        state.backdrop.userInteractionEnabled = NO; state.backdrop.layer.cornerRadius = 30;
+        state.backdrop.layer.cornerCurve = kCACornerCurveContinuous; state.backdrop.clipsToBounds = YES;
+        state.backdrop.layer.borderWidth = 0.5;
+        state.backdrop.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.18].CGColor;
+        state.backdrop.tag = 0x484752;
         state.native = HGCreateNativeTabBar(bar);
         objc_setAssociatedObject(bar, &HGLiquidKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        [bar insertSubview:state.black atIndex:0]; if (state.native) [bar addSubview:state.native];
+        [bar insertSubview:state.black atIndex:0]; [bar addSubview:state.backdrop]; if (state.native) [bar addSubview:state.native];
     }
     HGSyncNativeTab(state, bar); HGLiquidClean(state, bar, YES);
     for (UIView *sibling in bar.superview.subviews) if (HGIsClass(sibling, @"CYLTabBar")) HGLiquidClean(state, sibling, YES);
@@ -190,6 +198,9 @@ void HGLiquidTabLayout(UIView *bar) {
     BOOL covered = state.native && HGVideoCoversBar(bar);
     if (state.black.hidden != covered) state.black.hidden = covered;
     if (!CGRectEqualToRect(state.black.frame, bar.bounds)) state.black.frame = bar.bounds;
+    CGRect floating = CGRectInset(bar.bounds, 10, 5);
+    if (!CGRectEqualToRect(state.backdrop.frame, floating)) state.backdrop.frame = floating;
+    if (state.native && !CGRectEqualToRect(state.native.frame, floating)) state.native.frame = floating;
     NSString *material = state.native ? (HGHasSystemPlatter(state.native) ? @"系统 UITabBar 悬浮布局已生成" : @"系统 UITabBar，等待/未生成 iOS 26 悬浮布局") : @"系统材质或原生切页事件不可用，保留黑色原生底栏";
     HGLiquidStatus = [NSString stringWithFormat:@"%@\n底栏背景：%@\n%@", material, covered ? @"实时视频" : @"黑色回退", HGVideoExperimentStatus()];
 }
