@@ -71,6 +71,14 @@ UITabBar *HGCreateNativeTabBar(UIView *host) {
     // Leave appearance ownership to UIKit. On iOS 26 this is what enables the
     // standard liquid-glass tab bar platter; forcing a transparent appearance
     // produces only a dark/clear rectangle.
+    UITabBarAppearance *appearance = [UITabBarAppearance new];
+    [appearance configureWithTransparentBackground];
+    appearance.backgroundColor = UIColor.clearColor;
+    appearance.backgroundEffect = nil;
+    appearance.shadowColor = UIColor.clearColor;
+    native.standardAppearance = appearance;
+    if (@available(iOS 15.0, *)) native.scrollEdgeAppearance = appearance;
+    native.backgroundColor = UIColor.clearColor;
     native.translucent = YES;
     NSArray *titles = @[@"首页", @"剧场", @"我的"], *symbols = @[@"house.fill", @"play.rectangle.fill", @"person.fill"];
     NSMutableArray *items = [NSMutableArray array];
@@ -193,7 +201,15 @@ void HGLiquidTabLayout(UIView *bar) {
         [bar insertSubview:state.black atIndex:0]; [bar addSubview:state.backdrop]; if (state.native) [bar addSubview:state.native];
     }
     HGSyncNativeTab(state, bar); HGLiquidClean(state, bar, YES);
-    for (UIView *sibling in bar.superview.subviews) if (HGIsClass(sibling, @"CYLTabBar")) HGLiquidClean(state, sibling, YES);
+    for (UIView *sibling in bar.superview.subviews) {
+        if (sibling != bar && (HGIsClass(sibling, @"CYLTabBar") || HGIsClass(sibling, @"SSTabBar"))) {
+            HGLiquidClean(state, sibling, YES);
+            // Keep the host's controls in the responder tree for forwarding,
+            // but remove their second visible tab layer entirely.
+            HGLiquidRemember(state, sibling);
+            sibling.layer.opacity = 0;
+        }
+    }
     if (state.native) HGUpdateVideoExperiment(bar); else HGRestoreVideoExperiment();
     BOOL covered = state.native && HGVideoCoversBar(bar);
     if (state.black.hidden != covered) state.black.hidden = covered;
