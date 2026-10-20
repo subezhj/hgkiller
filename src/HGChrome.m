@@ -7,7 +7,8 @@ extern BOOL HGHandleCaptionFont(UIView *view, UIFont *font, void (^apply)(UIFont
 static char HGRightStateKey, HGFontStateKey;
 static NSUInteger HGNativeRightLayoutDepth;
 static BOOL HGInVideoControls(UIView *view) {
-    if (!view.window || view.window.windowLevel != UIWindowLevelNormal || view.window.bounds.size.width > view.window.bounds.size.height) return NO;
+    if (!view.window || view.window.windowLevel != UIWindowLevelNormal ||
+        (view.window.bounds.size.width > view.window.bounds.size.height && UIDevice.currentDevice.userInterfaceIdiom != UIUserInterfaceIdiomPad)) return NO;
     for (UIView *node = view; node; node = node.superview)
         if (HGIsClass(node.nextResponder, @"FQVShortVideoListViewController")) return YES;
     return HGIsFeedView(view);

@@ -170,7 +170,8 @@ static void HGSyncNativeTab(HGLiquidState *state, UIView *host) {
 }
 void HGLiquidTabLayout(UIView *bar) {
     HGLiquidState *state = objc_getAssociatedObject(bar, &HGLiquidKey);
-    BOOL on = HGEnabled() && HGBool(@"tab.liquid.enabled") && HGPlaybackVisible(bar) && bar.window.windowLevel == UIWindowLevelNormal && bar.window.bounds.size.height > bar.window.bounds.size.width;
+    BOOL on = HGEnabled() && HGBool(@"tab.liquid.enabled") && HGPlaybackVisible(bar) && bar.window.windowLevel == UIWindowLevelNormal &&
+        (bar.window.bounds.size.height > bar.window.bounds.size.width || UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad);
     if (!on) {
         HGRestoreVideoExperimentForBar(bar); if (!state) return;
         for (HGLiquidPaint *paint in state.paints) {

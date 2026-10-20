@@ -28,7 +28,7 @@ static BOOL HGViewingDetail(UIView *view) {
 }
 static BOOL HGViewingScope(UIView *view) {
     return view.window && view.window.windowLevel == UIWindowLevelNormal &&
-        view.window.bounds.size.height > view.window.bounds.size.width && (HGIsFeedView(view) || HGViewingDetail(view));
+        (view.window.bounds.size.height > view.window.bounds.size.width || UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad) && (HGIsFeedView(view) || HGViewingDetail(view));
 }
 NSString *HGViewingKey(UIView *view, NSString *key) {
     return HGBool(@"profiles.enabled") && HGViewingDetail(view) ? [@"detail." stringByAppendingString:key] : key;
