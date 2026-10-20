@@ -214,8 +214,8 @@ void HGLiquidTabLayout(UIView *bar) {
     if (!CGRectEqualToRect(state.black.frame, bar.bounds)) state.black.frame = bar.bounds;
     // Keep the hit-test bar on the app's original 84pt slot. Extend only the
     // visual material upward to meet the native progress track at y=784.
-    CGRect material = CGRectMake(CGRectGetMinX(bar.bounds), -6, bar.bounds.size.width, bar.bounds.size.height + 6);
-    if (!CGRectEqualToRect(state.backdrop.frame, material)) state.backdrop.frame = material;
+    CGRect materialFrame = CGRectMake(CGRectGetMinX(bar.bounds), -6, bar.bounds.size.width, bar.bounds.size.height + 6);
+    if (!CGRectEqualToRect(state.backdrop.frame, materialFrame)) state.backdrop.frame = materialFrame;
     if (state.native && !CGRectEqualToRect(state.native.frame, bar.bounds)) state.native.frame = bar.bounds;
     NSString *material = state.native ? (HGHasSystemPlatter(state.native) ? @"系统 UITabBar 悬浮布局已生成" : @"系统 UITabBar，等待/未生成 iOS 26 悬浮布局") : @"系统材质或原生切页事件不可用，保留黑色原生底栏";
     HGLiquidStatus = [NSString stringWithFormat:@"%@\n底栏背景：%@\n%@", material, covered ? @"实时视频" : @"黑色回退", HGVideoExperimentStatus()];
