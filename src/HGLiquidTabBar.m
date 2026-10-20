@@ -18,11 +18,6 @@ static NSArray<UIView *> *HGTabButtons(UIView *root) {
     }];
     return buttons;
 }
-static BOOL HGCanForwardTab(UIView *host, UIView *button) {
-    if ([button isKindOfClass:UIControl.class] && (((UIControl *)button).allControlEvents & UIControlEventTouchUpInside)) return YES;
-    UITabBar *source = HGSourceTabBar(host);
-    return source.items.count == 3 && [source.delegate respondsToSelector:@selector(tabBar:didSelectItem:)];
-}
 @interface HGNativeTabProxy : NSObject <UITabBarDelegate>
 @property(nonatomic, weak) UIView *host;
 @end
@@ -56,8 +51,10 @@ static BOOL HGCanForwardTab(UIView *host, UIView *button) {
         }
     }
     for (UIResponder *next = self.host; next; next = next.nextResponder) {
-        if ([next isKindOfClass:UITabBarController.class]) {
-            ((UITabBarController *)next).selectedIndex = index;
+        if ([next isKindOfClass:UITabBarController.class] || [NSStringFromClass(next.class) isEqualToString:@"SSTabBarController"]) {
+            SEL setter = @selector(setSelectedIndex:);
+            if ([next respondsToSelector:setter])
+                ((void (*)(id, SEL, NSUInteger))objc_msgSend)(next, setter, index);
             break;
         }
     }
@@ -88,10 +85,10 @@ UITabBar *HGCreateNativeTabBar(UIView *host) {
     }
     native.items = items; native.selectedItem = items.firstObject;
     HGNativeTabProxy *proxy = [HGNativeTabProxy new]; proxy.host = host; native.delegate = proxy;
-    BOOL forwards = NO;
-    for (UIView *button in buttons)
-        if ([button isKindOfClass:UIControl.class] || HGCanForwardTab(host, button)) forwards = YES;
-    native.userInteractionEnabled = forwards;
+    // The visible SSTabBarTextButton instances may be gesture-backed and
+    // expose no UIControl event flags. The proxy still has a route through the
+    // SSTabBarController, so never disable the native hit target on that guess.
+    native.userInteractionEnabled = YES;
     objc_setAssociatedObject(native, &HGNativeProxyKey, proxy, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     return native;
 }
