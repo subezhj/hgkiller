@@ -191,10 +191,8 @@ void HGLiquidTabLayout(UIView *bar) {
         state.black.userInteractionEnabled = NO; state.black.accessibilityElementsHidden = YES; state.black.tag = 0x484750;
         UIBlurEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemMaterialDark];
         state.backdrop = [[UIVisualEffectView alloc] initWithEffect:blur];
-        state.backdrop.userInteractionEnabled = NO; state.backdrop.layer.cornerRadius = 30;
-        state.backdrop.layer.cornerCurve = kCACornerCurveContinuous; state.backdrop.clipsToBounds = YES;
-        state.backdrop.layer.borderWidth = 0.5;
-        state.backdrop.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.18].CGColor;
+        state.backdrop.userInteractionEnabled = NO; state.backdrop.layer.cornerRadius = 0;
+        state.backdrop.clipsToBounds = YES;
         state.backdrop.tag = 0x484752;
         state.native = HGCreateNativeTabBar(bar);
         objc_setAssociatedObject(bar, &HGLiquidKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -214,9 +212,11 @@ void HGLiquidTabLayout(UIView *bar) {
     BOOL covered = state.native && HGVideoCoversBar(bar);
     if (state.black.hidden != covered) state.black.hidden = covered;
     if (!CGRectEqualToRect(state.black.frame, bar.bounds)) state.black.frame = bar.bounds;
-    CGRect floating = CGRectInset(bar.bounds, 10, 5);
-    if (!CGRectEqualToRect(state.backdrop.frame, floating)) state.backdrop.frame = floating;
-    if (state.native && !CGRectEqualToRect(state.native.frame, floating)) state.native.frame = floating;
+    // Keep the hit-test bar on the app's original 84pt slot. Extend only the
+    // visual material upward to meet the native progress track at y=784.
+    CGRect material = CGRectMake(CGRectGetMinX(bar.bounds), -6, bar.bounds.size.width, bar.bounds.size.height + 6);
+    if (!CGRectEqualToRect(state.backdrop.frame, material)) state.backdrop.frame = material;
+    if (state.native && !CGRectEqualToRect(state.native.frame, bar.bounds)) state.native.frame = bar.bounds;
     NSString *material = state.native ? (HGHasSystemPlatter(state.native) ? @"系统 UITabBar 悬浮布局已生成" : @"系统 UITabBar，等待/未生成 iOS 26 悬浮布局") : @"系统材质或原生切页事件不可用，保留黑色原生底栏";
     HGLiquidStatus = [NSString stringWithFormat:@"%@\n底栏背景：%@\n%@", material, covered ? @"实时视频" : @"黑色回退", HGVideoExperimentStatus()];
 }
