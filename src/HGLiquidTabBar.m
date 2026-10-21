@@ -68,14 +68,9 @@ UITabBar *HGCreateNativeTabBar(UIView *host) {
     // Leave appearance ownership to UIKit. On iOS 26 this is what enables the
     // standard liquid-glass tab bar platter; forcing a transparent appearance
     // produces only a dark/clear rectangle.
-    UITabBarAppearance *appearance = [UITabBarAppearance new];
-    [appearance configureWithTransparentBackground];
-    appearance.backgroundColor = UIColor.clearColor;
-    appearance.backgroundEffect = nil;
-    appearance.shadowColor = UIColor.clearColor;
-    native.standardAppearance = appearance;
-    if (@available(iOS 15.0, *)) native.scrollEdgeAppearance = appearance;
-    native.backgroundColor = UIColor.clearColor;
+    // Do not assign standardAppearance/scrollEdgeAppearance here. iOS 26/27
+    // decides whether to create the native Liquid Glass platter from the
+    // system-owned UITabBar configuration.
     native.translucent = YES;
     NSArray *titles = @[@"首页", @"剧场", @"我的"], *symbols = @[@"house.fill", @"play.rectangle.fill", @"person.fill"];
     NSMutableArray *items = [NSMutableArray array];
@@ -189,7 +184,8 @@ void HGLiquidTabLayout(UIView *bar) {
         state.black.userInteractionEnabled = NO; state.black.accessibilityElementsHidden = YES; state.black.tag = 0x484750;
         UIBlurEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemMaterialDark];
         state.backdrop = [[UIVisualEffectView alloc] initWithEffect:blur];
-        state.backdrop.userInteractionEnabled = NO; state.backdrop.layer.cornerRadius = 0;
+        state.backdrop.userInteractionEnabled = NO; state.backdrop.layer.cornerRadius = 30;
+        state.backdrop.layer.cornerCurve = kCACornerCurveContinuous;
         state.backdrop.clipsToBounds = YES;
         state.backdrop.tag = 0x484752;
         state.native = HGCreateNativeTabBar(bar);
@@ -208,11 +204,16 @@ void HGLiquidTabLayout(UIView *bar) {
     }
     if (state.native) HGUpdateVideoExperiment(bar); else HGRestoreVideoExperiment();
     BOOL covered = state.native && HGVideoCoversBar(bar);
-    if (state.black.hidden != covered) state.black.hidden = covered;
+    // The fallback black view used to cover the blur whenever the video did
+    // not extend under the bar. Keep it hidden in liquid mode; the fallback is
+    // the floating material capsule, not a black rectangle.
+    if (!state.black.hidden) state.black.hidden = YES;
     if (!CGRectEqualToRect(state.black.frame, bar.bounds)) state.black.frame = bar.bounds;
     // Keep the hit-test bar on the app's original 84pt slot. Extend only the
     // visual material upward to meet the native progress track at y=784.
-    CGRect materialFrame = CGRectMake(CGRectGetMinX(bar.bounds), -6, bar.bounds.size.width, bar.bounds.size.height + 6);
+    BOOL hasPlatter = state.native && HGHasSystemPlatter(state.native);
+    state.backdrop.hidden = hasPlatter;
+    CGRect materialFrame = CGRectInset(bar.bounds, 10, 5);
     if (!CGRectEqualToRect(state.backdrop.frame, materialFrame)) state.backdrop.frame = materialFrame;
     if (state.native && !CGRectEqualToRect(state.native.frame, bar.bounds)) state.native.frame = bar.bounds;
     NSString *material = state.native ? (HGHasSystemPlatter(state.native) ? @"系统 UITabBar 悬浮布局已生成" : @"系统 UITabBar，等待/未生成 iOS 26 悬浮布局") : @"系统材质或原生切页事件不可用，保留黑色原生底栏";
