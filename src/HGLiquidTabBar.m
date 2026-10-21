@@ -97,6 +97,7 @@ UITabBar *HGCreateNativeTabBar(UIView *host) {
 @interface HGLiquidState : NSObject
 @property(nonatomic, strong) UIView *black;
 @property(nonatomic, strong) UIVisualEffectView *backdrop;
+@property(nonatomic, strong) UIView *selection;
 @property(nonatomic, strong) UITabBar *native;
 @property(nonatomic, strong) NSMutableArray<HGLiquidPaint *> *paints;
 @end
@@ -127,6 +128,16 @@ static void HGLiquidClean(HGLiquidState *state, UIView *root, BOOL hostBar) {
         if (backdrop && child.bounds.size.width >= root.bounds.size.width * 0.85 && child.bounds.size.width > 100) {
             HGLiquidRemember(state, child); if (child.layer.opacity != 0) child.layer.opacity = 0;
         } else if (![child isKindOfClass:UIControl.class]) HGLiquidClean(state, child, NO);
+    }
+}
+static void HGLiquidHideNativeBackground(HGLiquidState *state, UIView *root) {
+    for (UIView *child in root.subviews) {
+        if ([NSStringFromClass(child.class) containsString:@"BarBackground"]) {
+            HGLiquidRemember(state, child);
+            child.layer.opacity = 0;
+            continue;
+        }
+        HGLiquidHideNativeBackground(state, child);
     }
 }
 static BOOL HGHasSystemPlatter(UIView *view) {
@@ -187,12 +198,19 @@ void HGLiquidTabLayout(UIView *bar) {
         state.backdrop.userInteractionEnabled = NO; state.backdrop.layer.cornerRadius = 30;
         state.backdrop.layer.cornerCurve = kCACornerCurveContinuous;
         state.backdrop.clipsToBounds = YES;
+        state.selection = [UIView new];
+        state.selection.backgroundColor = [UIColor colorWithWhite:1 alpha:0.18];
+        state.selection.layer.cornerRadius = 24;
+        state.selection.layer.cornerCurve = kCACornerCurveContinuous;
+        state.selection.userInteractionEnabled = NO;
         state.backdrop.tag = 0x484752;
+        [state.backdrop.contentView addSubview:state.selection];
         state.native = HGCreateNativeTabBar(bar);
         objc_setAssociatedObject(bar, &HGLiquidKey, state, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         [bar insertSubview:state.black atIndex:0]; [bar addSubview:state.backdrop]; if (state.native) [bar addSubview:state.native];
     }
     HGSyncNativeTab(state, bar); HGLiquidClean(state, bar, YES);
+    if (state.native) HGLiquidHideNativeBackground(state, state.native);
     for (UIView *sibling in bar.superview.subviews) {
         if (sibling != bar && (HGIsClass(sibling, @"CYLTabBar") || HGIsClass(sibling, @"SSTabBar"))) {
             HGLiquidClean(state, sibling, YES);
@@ -216,6 +234,10 @@ void HGLiquidTabLayout(UIView *bar) {
     CGRect materialFrame = CGRectInset(bar.bounds, 10, 5);
     if (!CGRectEqualToRect(state.backdrop.frame, materialFrame)) state.backdrop.frame = materialFrame;
     if (state.native && !CGRectEqualToRect(state.native.frame, bar.bounds)) state.native.frame = bar.bounds;
+    NSUInteger selectedIndex = state.native && state.native.selectedItem ? [state.native.items indexOfObjectIdenticalTo:state.native.selectedItem] : 0;
+    CGFloat slot = state.backdrop.bounds.size.width / 3.0;
+    CGRect selectedFrame = CGRectMake(slot * MIN(selectedIndex, 2) + 4, 8, slot - 8, MAX(40, state.backdrop.bounds.size.height - 16));
+    if (!CGRectEqualToRect(state.selection.frame, selectedFrame)) state.selection.frame = selectedFrame;
     NSString *material = state.native ? (HGHasSystemPlatter(state.native) ? @"系统 UITabBar 悬浮布局已生成" : @"系统 UITabBar，等待/未生成 iOS 26 悬浮布局") : @"系统材质或原生切页事件不可用，保留黑色原生底栏";
     HGLiquidStatus = [NSString stringWithFormat:@"%@\n底栏背景：%@\n%@", material, covered ? @"实时视频" : @"黑色回退", HGVideoExperimentStatus()];
 }
